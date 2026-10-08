@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>W Bullion • Admin</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <!-- Auth layer -->
+  <div id="authLayer" class="auth-layer">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <img src="/images/logo.png" alt="W Bullion" onerror="this.style.display='none'">
+        <h1>W Bullion</h1>
+        <p>Admin Access</p>
+      </div>
+      <div id="authBody"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="dashboard hidden">
+    <header class="status-bar">
+      <div class="status-left">
+        <span id="networkLabel"><i class="fas fa-wifi"></i> WiFi</span>
+        <span id="weatherLabel"><i class="fas fa-cloud-sun"></i> --°C</span>
+        <span class="live-dot"><span></span> Live</span>
+      </div>
+      <div class="status-right">
+        <span id="clock">--:--:--</span>
+        <span id="dateLabel">—</span>
+        <button id="batteryBtn" class="battery-btn"><i class="fas fa-battery-full"></i> <span id="batteryPct">--%</span></button>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <div class="admin-header">
+        <div>
+          <h1>Admin Dashboard</h1>
+          <p class="muted" id="adminIdentity">—</p>
+        </div>
+        <button id="logoutBtn" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+
+      <section class="stats-grid" id="statsGrid"></section>
+
+      <section class="panel" id="quickActionsPanel">
+        <h2>Quick Actions</h2>
+        <div class="quick-actions" id="quickActions"></div>
+      </section>
+
+      <section class="panel" id="adminEarningsPanel">
+        <h2><i class="fas fa-wallet"></i> Admin Earnings</h2>
+        <div class="balance-display">
+          <p class="muted">Total from game losses</p>
+          <p class="balance-big" id="adminBalanceBig">NGN 0</p>
+        </div>
+        <div class="swipe-tabs" id="earningsTabs">
+          <button class="active" data-tab="losses">Game Losses</button>
+          <button data-tab="activations">Total Activation Revenue</button>
+        </div>
+        <div id="earningsContent"></div>
+      </section>
+
+      <section class="panel" id="paymentsPanel">
+        <div class="panel-head">
+          <h2><i class="fas fa-bell"></i> Payment Management</h2>
+        </div>
+        <div class="tabs" id="paymentTabs">
+          <button class="tab active" data-tab="pending">Pending</button>
+          <button class="tab" data-tab="confirmed">Confirmed</button>
+          <button class="tab" data-tab="rejected">Rejected</button>
+          <button class="tab" data-tab="nonactivated">Non-Activated</button>
+          <button class="tab" data-tab="all">All</button>
+        </div>
+        <div id="paymentsList" class="payments-list"></div>
+      </section>
+
+      <section class="panel" id="usersPanel">
+        <div class="panel-head">
+          <h2><i class="fas fa-users"></i> Users</h2>
+          <input id="userSearch" class="search-input" placeholder="Search name, @username, email or ref code...">
+        </div>
+        <div id="usersList" class="users-list"></div>
+      </section>
+
+      <section class="panel" id="galleryPanel">
+        <h2><i class="fas fa-images"></i> Gallery</h2>
+        <p class="muted">Receipt images at a glance. Naming: <code>smsdas[last4].png</code> / <code>bars[last4].png</code></p>
+        <div id="galleryGrid" class="gallery-grid"></div>
+      </section>
+
+      <section class="panel" id="nomineesPanel">
+        <h2><i class="fas fa-award"></i> Verified Badge Nominees</h2>
+        <div id="nomineesList" class="nominees-list"></div>
+      </section>
+
+      <section class="panel" id="broadcastPanel">
+        <h2><i class="fas fa-bullhorn"></i> Broadcasts & Notifications</h2>
+        <div class="form-row">
+          <label>Type</label>
+          <select id="bcKind">
+            <option value="bottom">Bottom popup</option>
+            <option value="fullscreen">Full screen</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Title</label>
+          <input id="bcTitle" placeholder="Optional title">
+        </div>
+        <div class="form-row">
+          <label>Body</label>
+          <div id="bcToolbar" class="editor-toolbar">
+            <button data-cmd="bold"><i class="fas fa-bold"></i></button>
+            <button data-cmd="italic"><i class="fas fa-italic"></i></button>
+            <button data-cmd="underline"><i class="fas fa-underline"></i></button>
+            <button data-cmd="insertUnorderedList"><i class="fas fa-list-ul"></i></button>
+            <button data-cmd="justifyLeft"><i class="fas fa-align-left"></i></button>
+            <button data-cmd="justifyCenter"><i class="fas fa-align-center"></i></button>
+            <button data-cmd="justifyRight"><i class="fas fa-align-right"></i></button>
+            <button data-cmd="fontSizeUp">A+</button>
+            <button data-cmd="fontSizeDown">A-</button>
+            <input type="color" id="bcColor" title="Text color">
+          </div>
+          <div id="bcBody" class="editor" contenteditable="true" placeholder="Write broadcast body..."></div>
+        </div>
+        <div class="form-row inline">
+          <label><input type="checkbox" id="bcPublish"> Publish now</label>
+          <label><input type="checkbox" id="bcSendNotif"> Also send as general notification to all users</label>
+        </div>
+        <button class="btn btn-primary" id="bcSend">Send Broadcast</button>
+        <div id="broadcastHistory" class="broadcast-history"></div>
+      </section>
+
+      <section class="panel" id="statsPanel">
+        <h2><i class="fas fa-chart-line"></i> Statistics</h2>
+        <div class="swipe-tabs" id="statsTabs">
+          <button class="active" data-range="hour">Last Hour</button>
+          <button data-range="day">Last Day</button>
+          <button data-range="week">Last Week</button>
+        </div>
+        <div id="statsContent"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Screenshot modal -->
+  <div id="screenshotModal" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>Payment Screenshots</h3>
+        <button class="close-btn" onclick="document.getElementById('screenshotModal').classList.add('hidden')">
+          <i class="fas fa-close"></i>
+        </button>
+      </div>
+      <div class="screenshot-grid">
+        <div><h4>SMS Debit Alert</h4><img id="modalSms" src=""></div>
+        <div><h4>Payment Receipt</h4><img id="modalReceipt" src=""></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toastRoot"></div>
+
+  <script type="module" src="/js/admin/main.js"></script>
+</body>
+</html>

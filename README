@@ -1,0 +1,217 @@
+W Bullion — README
+
+A real-time earning platform for the Nigerian market. Built on Vercel + Supabase + Cloudinary.
+
+---
+
+🏗️ Architecture
+
+Layer Tech Purpose
+Frontend Vanilla JS (ES modules) + Tailwind-like CSS SPA, no build step
+Hosting Vercel Static + serverless functions
+Database Supabase (Postgres) Users, balances, transactions, reels metadata
+Realtime Supabase Realtime Live updates (replaces polling)
+File Storage Cloudinary Reels (100 MB max), screenshots
+Auth Supabase Auth User sessions
+Email Nodemailer (Gmail) Activation receipts
+
+---
+
+📁 Project Structure
+
+```
+/
+├── vercel.json              # Vercel routing + headers
+├── index.html               # Main SPA shell
+├── admin.html               # Admin dashboard (Phase 4)
+├── favicon.ico
+├── README.md
+├── .env.example             # Local reference (do not commit real keys)
+├── api/
+│   ├── env.js               # Public env var bridge
+│   └── ...                  # More serverless functions in later phases
+├── css/
+│   └── theme.css            # Theme variables + boot + navbar + modal
+├── js/
+│   ├── main.js              # Entry point + boot + route registration
+│   ├── config.js            # Fetches /api/env
+│   ├── supabase.js          # Supabase client
+│   ├── router.js            # SPA router
+│   ├── modal.js             # Custom alerts/confirm/prompt/toast
+│   ├── navbar.js            # Bottom nav controller
+│   └── boot.js              # Boot sequence
+└── images/
+    ├── logo.png             # Required
+    ├── vbadge.png           # Phase 6
+    └── players/             # Phase 7 (football takers)
+```
+
+---
+
+🚀 Deploy Steps
+
+1. Supabase Setup
+
+1. Go to supabase.com → Start your project
+2. Create a new project (pick region eu-west or closest to Nigeria)
+3. Once ready, click the Connect button (top of dashboard)
+4. Copy:
+   · Project URL → https://xxxxx.supabase.co
+   · Publishable Key → sb_publishable_... (or anon key if older project)
+5. Also go to Settings → API and copy the Secret Key (formerly service_role) — keep this safe, server-only.
+
+2. Cloudinary Setup
+
+1. Go to cloudinary.com → Register (free)
+2. From the Dashboard:
+   · Copy Cloud Name
+   · Click Go to API Keys → copy API Key and API Secret
+
+3. Vercel Setup
+
+Option A — Via GitHub (recommended):
+
+1. Push this project to a GitHub repo
+2. Go to vercel.com/new
+3. Import your repo
+4. Framework Preset: Other
+5. Build Command: (leave empty)
+6. Output Directory: (leave empty)
+7. Add Environment Variables (see below)
+8. Click Deploy
+
+Option B — Via Vercel CLI:
+
+```bash
+npm i -g vercel
+cd your-project-folder
+vercel
+vercel env add SUPABASE_URL
+vercel env add SUPABASE_PUBLISHABLE_KEY
+vercel --prod
+```
+
+4. Environment Variables
+
+Add these in Vercel → Project → Settings → Environment Variables:
+
+Key Value Environment
+SUPABASE_URL https://xxx.supabase.co Production, Preview, Development
+SUPABASE_PUBLISHABLE_KEY sb_publishable_... All
+SUPABASE_SECRET_KEY sb_secret_... All (server-only)
+CLOUDINARY_CLOUD_NAME (from Cloudinary) All (Phase 5)
+CLOUDINARY_API_KEY (from Cloudinary) All (Phase 5)
+CLOUDINARY_API_SECRET (from Cloudinary) All (Phase 5)
+ADMIN_EMAIL wbullion0@gmail.com All (Phase 4)
+ADMIN_PASSWORD (choose strong password) All (Phase 4)
+EMAIL_USER wbullion0@gmail.com All (Phase 4)
+EMAIL_PASS Gmail app password All (Phase 4)
+
+⚠️ Never commit real keys to Git. Use .env.example for templates only.
+
+---
+
+🧪 Local Development
+
+You need the Vercel CLI because the app uses serverless functions.
+
+```bash
+# Install once
+npm i -g vercel
+
+# First time only — links to your Vercel project
+vercel link
+
+# Pull env vars from Vercel
+vercel env pull .env.local
+
+# Run locally (serves /api and static together)
+vercel dev
+```
+
+Open http://localhost:3000.
+
+Plain python -m http.server or live-server will not work — the /api/env route won't resolve.
+
+---
+
+🌍 Routing Map
+
+Path Purpose Phase
+/login Login page 2
+/signup Signup + live validation 2
+/terms Terms & policies (scroll-lock Agree) 2
+/activation Activation payment submission 2
+/ref/:code Referral redirect → /signup 2
+/home Home dashboard 3
+/home/streak Streak records 3
+/home/balance Balance history 3
+/home/balance/credits Credit transactions 3
+/home/balance/debits Debit transactions 3
+/home/sptf Suggested People To Follow 6
+/home/tasks Tasks list 6
+/reels Reels feed 5
+/reels/:id Single reel 5
+/reels/:id/create Reel creation 5
+/profile Own profile 6
+/profile/:username Other user's profile 6
+/more Settings menu 2+
+/games Games hub 7
+/admin Admin panel 4
+
+---
+
+📦 Phase Roadmap
+
+Phase Deliverable Status
+1 Foundation — routing, boot, navbar, theme, modals, Supabase client ✅ Done
+2 Auth — login, signup, terms, activation, referral 🔄 Next
+3 Home + streak + balance (server-side) ⏳
+4 Admin panel rewrite ⏳
+5 Reels (Cloudinary upload, search, like/dislike) ⏳
+6 Profile + notifications + badges + HOEP + tasks ⏳
+7 Games (Football Babylon.js, TTT, RPS, Leveller, Bet-TTT) ⏳
+8 W Waiter + visibility lockdown + polish ⏳
+
+---
+
+🔒 Security Notes
+
+· Publishable key is safe in browser code — protection comes from Supabase RLS policies (Phase 2).
+· Secret key (SUPABASE_SECRET_KEY) is server-only. Never import it into any js/ file.
+· Cloudinary API Secret is server-only. Client uploads use signed requests (Phase 5).
+· All user data is served from Supabase, never hardcoded client-side.
+· Vercel provides automatic HTTPS, DDoS protection, and the x-vercel-ip-country header we use for the Nigeria-only check.
+
+---
+
+🐛 Troubleshooting
+
+Boot screen never finishes
+
+· Open DevTools → Console. Check if /api/env returns 200.
+· If running locally without vercel dev, /api/env will 404 → boot still completes but Supabase will be null.
+
+Navbar visible on /reels
+
+· The HIDE_ON array in js/navbar.js should include /reels, /games, /profile.
+
+Blank page after boot
+
+· Router didn't match a route. Check js/main.js — every path in the Routing Map must have a registerRoute(...) call.
+
+"Supabase credentials missing" warning
+
+· Env vars not set in Vercel, or you ran locally without vercel env pull.
+
+Site not detecting Nigeria (or blocking Nigeria)
+
+· x-vercel-ip-country only appears on Vercel-deployed URLs, not localhost. Local always allows through.
+
+---
+
+📞 Admin Contact
+
+Admin email: wbullion0@gmail.com
+
+---

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#3ba072" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <title>W Bullion</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="/css/theme.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Boot Screen -->
+    <section id="bootScreen" class="boot-screen">
+      <div class="boot-center">
+        <div class="logo-wrap">
+          <img src="/images/logo.png" alt="W Bullion" class="boot-logo" onerror="this.style.display='none'" />
+          <div class="dot-orbit" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <h1 id="bootName" class="boot-name">W Bullion</h1>
+      </div>
+      <div class="boot-steps">
+        <p id="bootStep" class="boot-step"></p>
+      </div>
+    </section>
+
+    <!-- Main View Container -->
+    <main id="viewContainer" class="view-container hidden"></main>
+
+    <!-- Bottom Nav -->
+    <nav id="bottomNav" class="bottom-nav hidden">
+      <button class="nav-item" data-route="/home">
+        <i class="fas fa-home"></i><span>Home</span>
+      </button>
+      <button class="nav-item" data-route="/games">
+        <i class="fas fa-gamepad"></i><span>Games</span>
+      </button>
+      <button class="nav-item" data-route="/reels">
+        <i class="fas fa-video"></i><span>Reels</span>
+      </button>
+      <button class="nav-item" data-route="/profile">
+        <i class="fas fa-user-circle"></i><span>Profile</span>
+      </button>
+      <button class="nav-item" data-route="/more">
+        <i class="fas fa-ellipsis"></i><span>More</span>
+      </button>
+    </nav>
+
+    <!-- Modal Root -->
+    <div id="modalRoot"></div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
