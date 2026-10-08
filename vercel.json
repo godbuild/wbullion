@@ -2,6 +2,7 @@
   "rewrites": [
     { "source": "/ref/:code", "destination": "/index.html" },
     { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/api/admin/payments/:id", "destination": "/api/admin/payments/[id]" },
     { "source": "/((?!api/|images/|css/|js/|favicon|admin\\.html).*)", "destination": "/index.html" }
   ],
   "headers": [
