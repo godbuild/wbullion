@@ -6,7 +6,7 @@ export async function renderSPTF() {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  const res = await fetch(`/api/sptf/list?deviceId=${encodeURIComponent(getDeviceId())}`);
+  const res = await fetch(`/api/users?action=sptf&deviceId=${encodeURIComponent(getDeviceId())}`);
   const data = await res.json();
   const users = data.users || [];
 
@@ -37,7 +37,7 @@ export async function renderSPTF() {
   document.getElementById('closeSptf').onclick = () => history.back();
 
   document.querySelectorAll('.followBtn').forEach(btn => btn.onclick = async () => {
-    const r = await fetch('/api/users/follow', {
+    const r = await fetch('/api/users?action=follow', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId: getDeviceId(), username: btn.dataset.username, action: 'follow' })
