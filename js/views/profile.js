@@ -13,7 +13,6 @@ export async function renderProfile(username) {
   const target = username || '@' + (me?.username || '').replace(/^@/, '');
   const clean = target.startsWith('@') ? target.toLowerCase() : '@' + target.toLowerCase();
 
-  // Fire-and-forget view tracker (skip own profile)
   if (clean !== (me?.username || '').toLowerCase()) {
     fetch('/api/users?action=track-view', {
       method: 'POST',
