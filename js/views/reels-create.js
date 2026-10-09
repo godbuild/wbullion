@@ -66,7 +66,6 @@ export function renderReelsCreate() {
     preview.src = url;
     preview.style.display = 'block';
     fileInfo.textContent = `${f.name} · ${(f.size / 1024 / 1024).toFixed(1)} MB`;
-    // Check duration
     preview.onloadedmetadata = () => {
       if (preview.duration > 300) {
         showAlert('Video exceeds 5 minutes', 'Too long');
@@ -101,8 +100,7 @@ export function renderReelsCreate() {
     postBtn.textContent = 'Uploading...';
 
     try {
-      // 1. Sign
-      const signRes = await fetch('/api/reels/sign-upload', {
+      const signRes = await fetch('/api/reels?action=sign-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: getDeviceId() })
@@ -110,7 +108,6 @@ export function renderReelsCreate() {
       const sign = await signRes.json();
       if (!signRes.ok) throw new Error(sign.error || 'Sign failed');
 
-      // 2. Upload to Cloudinary
       const form = new FormData();
       form.append('file', selectedFile);
       form.append('api_key', sign.apiKey);
@@ -126,8 +123,7 @@ export function renderReelsCreate() {
       const cloudinary = await cRes.json();
       if (!cRes.ok || !cloudinary.secure_url) throw new Error(cloudinary.error?.message || 'Upload failed');
 
-      // 3. Save metadata
-      const saveRes = await fetch('/api/reels/create', {
+      const saveRes = await fetch('/api/reels?action=create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
