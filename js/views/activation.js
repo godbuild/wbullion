@@ -28,11 +28,11 @@ export function renderActivation() {
       <div id="payDetails" style="display:none;margin-top:16px;background:var(--bg-secondary);padding:16px;border-radius:12px;">
         <p style="margin-bottom:8px;font-weight:bold;">Pay to:</p>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border-color);">
-          <span><strong>Account:</strong> <span id="payAcc">8105617311</span></span>
+          <span><strong>Account:</strong> 8105617311</span>
           <button class="copy-btn" data-copy="8105617311" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:18px;"><i class="fas fa-copy"></i></button>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
-          <span><strong>Bank:</strong> <span id="payBank">MOMO PSB</span></span>
+          <span><strong>Bank:</strong> MOMO PSB</span>
           <button class="copy-btn" data-copy="MOMO PSB" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:18px;"><i class="fas fa-copy"></i></button>
         </div>
         <p style="font-size:13px;color:var(--text-secondary);margin-top:8px;">Set description to: <strong>W Bullion Activation Fees</strong></p>
@@ -58,7 +58,7 @@ export function renderActivation() {
 }
 
 function attachActivationListeners() {
-  const fields = ['actName','actAccNum','actBank'].map(id => document.getElementById(id));
+  const fields = ['actName', 'actAccNum', 'actBank'].map(id => document.getElementById(id));
   const proceed = document.getElementById('proceedBtn');
 
   function check() {
@@ -74,7 +74,9 @@ function attachActivationListeners() {
       try {
         await navigator.clipboard.writeText(text);
         showToast('Copied');
-      } catch { showToast('Copy failed'); }
+      } catch {
+        showToast('Copy failed');
+      }
     });
   });
 
@@ -95,7 +97,7 @@ function attachActivationListeners() {
   });
 }
 
-async function fileToBase64(file) {
+function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result);
@@ -127,7 +129,7 @@ async function handleSubmitPayment() {
       smsScreenshot: await fileToBase64(sms),
       receiptScreenshot: await fileToBase64(receipt)
     };
-    const res = await fetch('/api/payments/submit', {
+    const res = await fetch('/api/payments?action=submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -141,31 +143,11 @@ async function handleSubmitPayment() {
   }
 }
 
-  const fd = new FormData();
-  fd.append('smsScreenshot', sms);
-  fd.append('receiptScreenshot', receipt);
-  fd.append('email', document.getElementById('actEmail').value);
-  fd.append('name', document.getElementById('actName').value);
-  fd.append('accountNumber', document.getElementById('actAccNum').value);
-  fd.append('bankName', document.getElementById('actBank').value);
-
-  showToast('Submitting payment...');
-  try {
-    const res = await fetch('/api/payments/submit', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Submit failed');
-    await showAlert('Payment submitted! Admin will review shortly.', 'Submitted');
-    document.getElementById('uploadSection').style.display = 'none';
-  } catch (err) {
-    showAlert(err.message, 'Error');
-  }
-}
-
 export function startActivationPolling() {
   stopActivationPolling();
   _checkInterval = setInterval(async () => {
     try {
-      const res = await fetch(`/api/users/me?deviceId=${encodeURIComponent(getDeviceId())}`);
+      const res = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
       if (!res.ok) return;
       const user = await res.json();
       if (user.activated) {
@@ -183,5 +165,8 @@ export function startActivationPolling() {
 }
 
 export function stopActivationPolling() {
-  if (_checkInterval) { clearInterval(_checkInterval); _checkInterval = null; }
+  if (_checkInterval) {
+    clearInterval(_checkInterval);
+    _checkInterval = null;
+  }
 }
