@@ -3,10 +3,6 @@ import { getCurrentUser, setCurrentUser, getDeviceId } from '../auth.js';
 import { showAlert, showToast } from '../modal.js';
 import { money, compact } from '../format.js';
 
-export async function refreshUser() {
-  return await loadUserFromServer();
-}
-
 let _pullActive = false;
 
 export function renderHome() {
@@ -81,7 +77,6 @@ export function renderHome() {
     </div>
   `;
 
-  // Handlers
   document.getElementById('helloBtn').addEventListener('click', () => navigate('/home/streak'));
   document.getElementById('balanceBtn').addEventListener('click', () => navigate('/home/balance'));
   document.getElementById('goGames').addEventListener('click', () => navigate('/games'));
@@ -107,7 +102,7 @@ export function renderHome() {
 async function handleClaimBonus() {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/bonus/daily?deviceId=${encodeURIComponent(deviceId)}`, {
+    const res = await fetch(`/api/bonus?action=daily&deviceId=${encodeURIComponent(deviceId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId })
@@ -123,7 +118,7 @@ async function handleClaimBonus() {
 async function handleTelegramBonus() {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/bonus/telegram?deviceId=${encodeURIComponent(deviceId)}`, {
+    const res = await fetch(`/api/bonus?action=telegram&deviceId=${encodeURIComponent(deviceId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId })
