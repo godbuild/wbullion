@@ -61,7 +61,7 @@ function renderAuth(sessionData) {
   document.getElementById('loginBtn').onclick = async () => {
     const password = document.getElementById('adPass').value;
     const adminAccountPassword = document.getElementById('adAccPass')?.value || '';
-    const res = await fetch(`${API}/admin/auth`, { 
+    const res = await fetch(`${API}/admin?action=auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-device': deviceId },
       body: JSON.stringify({ password, adminAccountPassword, deviceId })
@@ -75,7 +75,7 @@ function renderAuth(sessionData) {
     document.getElementById('bindBtn').onclick = async () => {
       const bindAccountEmail = document.getElementById('bindEmail').value;
       const adminAccountPassword = document.getElementById('bindPass').value;
-      const res = await fetch(`${API}/admin/auth`, {
+      const res = await fetch(`${API}/admin?action=auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-device': deviceId },
         body: JSON.stringify({ bindAccountEmail, adminAccountPassword, deviceId })
@@ -167,7 +167,7 @@ async function updateWeather() {
 
 // ============ Stats ============
 async function loadStats() {
-  const r = await adminFetch(`${API}/admin/stats`);
+  const r = await adminFetch(`${API}/admin?action=stats`);
   const d = await r.json();
   const grid = document.getElementById('statsGrid');
   grid.innerHTML = `
@@ -191,7 +191,7 @@ function loadQuickActions() {
     <button id="banAccountsBtn" style="color:var(--danger)"><i class="fas fa-ban"></i><div>Ban Account(s)</div></button>
   `;
   document.getElementById('exportUsersBtn').onclick = async () => {
-    const r = await adminFetch(`${API}/admin/users?limit=5000`);
+    const r = await adminFetch(`${API}/admin?action=users-list&limit=5000`);
     const d = await r.json();
     const blob = new Blob([JSON.stringify(d.users, null, 2)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -200,7 +200,7 @@ function loadQuickActions() {
   document.getElementById('resetAllBtn').onclick = async () => {
     if (!confirm('Delete ALL accounts? This cannot be undone.')) return;
     if (!confirm('FINAL WARNING: All users, balances, and data will be permanently removed.')) return;
-    const r = await adminFetch(`${API}/admin/reset-all`, { method: 'POST' });
+    const r = await adminFetch(`${API}/admin?action=reset-all`, { method: 'POST' });
     const d = await r.json();
     if (!r.ok) return toast(d.error || 'Reset failed');
     toast('All accounts cleared'); loadStats(); loadUsers();
@@ -211,7 +211,7 @@ function loadQuickActions() {
 // ============ Admin earnings ============
 let earningsTab = 'losses';
 function loadAdminEarnings() {
-  adminFetch(`${API}/admin/stats`).then(r => r.json()).then(d => {
+  adminFetch(`${API}/admin?action=stats`).then(r => r.json()).then(d => {
     document.getElementById('adminBalanceBig').textContent = 'NGN ' + (d.adminEarnings || 0).toLocaleString();
   });
   document.querySelectorAll('#earningsTabs button').forEach(b => {
@@ -228,7 +228,7 @@ function loadAdminEarnings() {
 async function renderEarningsContent() {
   const el = document.getElementById('earningsContent');
   if (earningsTab === 'activations') {
-    const r = await adminFetch(`${API}/admin/stats`);
+    const r = await adminFetch(`${API}/admin?action=stats`);
     const d = await r.json();
     el.innerHTML = `
       <div style="padding:20px;border:1px solid var(--border);border-radius:12px;margin-top:12px;">
@@ -256,7 +256,7 @@ document.querySelectorAll('#paymentTabs .tab').forEach(t => {
 async function loadPayments(status) {
   const el = document.getElementById('paymentsList');
   if (status === 'nonactivated') {
-    const r = await adminFetch(`${API}/admin/users?limit=500`);
+    const r = await adminFetch(`${API}/admin?action=users-list&limit=500`);
     const d = await r.json();
     const nonAct = (d.users || []).filter(u => !u.activated);
     el.innerHTML = nonAct.length === 0 ? `<p class="muted">No non-activated accounts</p>` :
@@ -278,7 +278,7 @@ async function loadPayments(status) {
     return;
   }
 
-  const r = await adminFetch(`${API}/admin/payments?status=${status}`);
+  const r = await adminFetch(`${API}/admin?action=payments-list&status=${status}`);
   const d = await r.json();
   const payments = d.payments || [];
   if (payments.length === 0) {
@@ -319,7 +319,7 @@ window.viewScreens = (sms, receipt) => {
 
 window.confirmPayment = async (id) => {
   if (!confirm('Confirm this payment? User will be activated.')) return;
-  const r = await adminFetch(`${API}/admin/payments/${id}`, { method: 'POST', body: JSON.stringify({ action: 'confirm' }) });
+  const r = await adminFetch(`${API}/admin?action=payments-single&id=${id}`, { method: 'POST', body: JSON.stringify({ action: 'confirm' }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Payment confirmed'); loadPayments(currentPaymentTab); loadStats();
@@ -328,18 +328,18 @@ window.confirmPayment = async (id) => {
 window.rejectPayment = async (id) => {
   const reason = prompt('Reason for rejection:');
   if (reason === null) return;
-  const r = await adminFetch(`${API}/admin/payments/${id}`, { method: 'POST', body: JSON.stringify({ action: 'reject', rejectionReason: reason }) });
+  const r = await adminFetch(`${API}/admin?action=payments-single&id=${id}`, { method: 'POST', body: JSON.stringify({ action: 'reject', rejectionReason: reason }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Payment rejected'); loadPayments(currentPaymentTab); loadStats();
 };
 
 window.generateReceipt = (id) => {
-  window.open(`${API}/admin/receipt?paymentId=${id}&deviceId=${deviceId}`, '_blank');
+  window.open(`${API}/admin?action=receipt&paymentId=${id}&deviceId=${deviceId}`, '_blank');
 };
 
 window.sendEmail = async (id) => {
-  const r = await adminFetch(`${API}/admin/send-email`, { method: 'POST', body: JSON.stringify({ paymentId: id }) });
+  const r = await adminFetch(`${API}/admin?action=send-email`, { method: 'POST', body: JSON.stringify({ paymentId: id }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Email sent with receipt attached');
@@ -354,7 +354,7 @@ document.getElementById('userSearch').addEventListener('input', e => {
 
 async function loadUsers(q = '') {
   const el = document.getElementById('usersList');
-  const r = await adminFetch(`${API}/admin/users?q=${encodeURIComponent(q)}&limit=100`);
+  const r = await adminFetch(`${API}/admin?action=users-list&q=${encodeURIComponent(q)}&limit=100`);
   const d = await r.json();
   const users = d.users || [];
   if (users.length === 0) { el.innerHTML = `<p class="muted">No users found</p>`; return; }
@@ -375,7 +375,7 @@ async function loadUsers(q = '') {
 }
 
 window.viewUser = async (id) => {
-  const r = await adminFetch(`${API}/admin/users/${id}`);
+  const r = await adminFetch(`${API}/admin?action=users-single&id=${id}`);
   const d = await r.json();
   const u = d.user;
   const html = `
@@ -404,14 +404,14 @@ window.viewUser = async (id) => {
 window.banUser = async (id) => {
   const reason = prompt('Ban reason:');
   if (!reason) return;
-  const r = await adminFetch(`${API}/admin/ban`, { method: 'POST', body: JSON.stringify({ userIds: [id], reason, action: 'ban' }) });
+  const r = await adminFetch(`${API}/admin?action=ban`, { method: 'POST', body: JSON.stringify({ userIds: [id], reason, action: 'ban' }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('User banned'); loadUsers();
 };
 
 window.unbanUser = async (id) => {
-  const r = await adminFetch(`${API}/admin/ban`, { method: 'POST', body: JSON.stringify({ userIds: [id], action: 'unban' }) });
+  const r = await adminFetch(`${API}/admin?action=ban`, { method: 'POST', body: JSON.stringify({ userIds: [id], action: 'unban' }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('User unbanned'); loadUsers();
@@ -419,7 +419,7 @@ window.unbanUser = async (id) => {
 
 window.resetUser = async (id) => {
   if (!confirm('Reset this non-activated account? Email and username will be freed.')) return;
-  const r = await adminFetch(`${API}/admin/reset`, { method: 'POST', body: JSON.stringify({ userId: id }) });
+  const r = await adminFetch(`${API}/admin?action=reset`, { method: 'POST', body: JSON.stringify({ userId: id }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Account reset'); loadPayments('nonactivated');
@@ -427,7 +427,7 @@ window.resetUser = async (id) => {
 
 // ============ Ban modal ============
 async function showBanModal() {
-  const r = await adminFetch(`${API}/admin/users?limit=500`);
+  const r = await adminFetch(`${API}/admin?action=users-list&limit=500`);
   const d = await r.json();
   const modal = document.createElement('div');
   modal.className = 'modal-backdrop';
@@ -455,7 +455,7 @@ async function showBanModal() {
     const reason = modal.querySelector('#banReason').value.trim();
     if (!userIds.length) return toast('Select at least one user');
     if (!reason) return toast('Reason required');
-    const res = await adminFetch(`${API}/admin/ban`, { method: 'POST', body: JSON.stringify({ userIds, reason, action: 'ban' }) });
+    const res = await adminFetch(`${API}/admin?action=ban`, { method: 'POST', body: JSON.stringify({ userIds, reason, action: 'ban' }) });
     const dd = await res.json();
     if (!res.ok) return toast(dd.error);
     toast(`Banned ${userIds.length} users`);
@@ -464,22 +464,9 @@ async function showBanModal() {
   document.body.appendChild(modal);
 }
 
-// ============ Gallery ============
-async function loadGallery() {
-  const r = await adminFetch(`${API}/admin/payments?status=all`);
-  const d = await r.json();
-  const payments = (d.payments || []).filter(p => p.sms_screenshot || p.receipt_screenshot);
-  const el = document.getElementById('galleryGrid');
-  if (payments.length === 0) { el.innerHTML = `<p class="muted">No receipts yet</p>`; return; }
-  el.innerHTML = payments.map(p => `
-    <div class="gallery-item" title="${p.email} — ${p.name}">
-      <img src="${p.receipt_screenshot || p.sms_screenshot}" alt="Receipt ${p.account_number}">
-    </div>`).join('');
-}
-
 // ============ Nominees ============
 async function loadNominees() {
-  const r = await adminFetch(`${API}/admin/badges`);
+  const r = await adminFetch(`${API}/admin?action=badges`);
   const d = await r.json();
   const el = document.getElementById('nomineesList');
   const list = (d.nominees || []).filter(n => n.status === 'pending');
@@ -497,13 +484,13 @@ async function loadNominees() {
 }
 
 window.confirmBadge = async (id) => {
-  const r = await adminFetch(`${API}/admin/badges`, { method: 'POST', body: JSON.stringify({ nomineeId: id, action: 'confirm' }) });
+  const r = await adminFetch(`${API}/admin?action=badges`, { method: 'POST', body: JSON.stringify({ nomineeId: id, action: 'confirm' }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Badge awarded'); loadNominees();
 };
 window.ignoreBadge = async (id) => {
-  const r = await adminFetch(`${API}/admin/badges`, { method: 'POST', body: JSON.stringify({ nomineeId: id, action: 'ignore' }) });
+  const r = await adminFetch(`${API}/admin?action=badges`, { method: 'POST', body: JSON.stringify({ nomineeId: id, action: 'ignore' }) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Nominee ignored'); loadNominees();
@@ -529,7 +516,7 @@ document.getElementById('bcSend').onclick = async () => {
     publish: document.getElementById('bcPublish').checked,
     sendAsNotification: document.getElementById('bcSendNotif').checked
   };
-  const r = await adminFetch(`${API}/admin/broadcast`, { method: 'POST', body: JSON.stringify(payload) });
+  const r = await adminFetch(`${API}/admin?action=broadcast`, { method: 'POST', body: JSON.stringify(payload) });
   const d = await r.json();
   if (!r.ok) return toast(d.error);
   toast('Broadcast sent');
@@ -539,7 +526,7 @@ document.getElementById('bcSend').onclick = async () => {
 };
 
 async function loadBroadcasts() {
-  const r = await adminFetch(`${API}/admin/broadcast`);
+  const r = await adminFetch(`${API}/admin?action=broadcast`);
   const d = await r.json();
   const el = document.getElementById('broadcastHistory');
   const list = d.broadcasts || [];
@@ -564,7 +551,7 @@ document.querySelectorAll('#statsTabs button').forEach(b => {
 });
 
 async function loadStatistics(range) {
-  const r = await adminFetch(`${API}/admin/statistics`);
+  const r = await adminFetch(`${API}/admin?action=statistics`);
   const d = await r.json();
   const scope = d[range] || { total: 0, byAction: {}, byGame: {} };
   const el = document.getElementById('statsContent');
