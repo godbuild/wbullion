@@ -13,6 +13,7 @@ export default async function handler(req, res) {
   switch (action) {
     case 'auth':             return auth(req, res);
     case 'session':          return session(req, res);
+    case 'set-password':     return setPassword(req, res);
     case 'logout':           return adminLogout(req, res);
     case 'stats':            return stats(req, res);
     case 'users-list':       return usersList(req, res);
