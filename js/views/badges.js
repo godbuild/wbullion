@@ -5,7 +5,7 @@ export async function renderBadges() {
   const el = document.getElementById('viewContainer');
   const deviceId = getDeviceId();
 
-  const res = await fetch(`/api/badges/list?deviceId=${encodeURIComponent(deviceId)}`);
+  const res = await fetch(`/api/notifications?action=badges-list&deviceId=${encodeURIComponent(deviceId)}`);
   const data = await res.json();
 
   el.innerHTML = `
@@ -36,7 +36,7 @@ export async function renderBadges() {
   document.getElementById('closeBadges').onclick = () => history.back();
 
   document.getElementById('claimBadge')?.addEventListener('click', async () => {
-    const r = await fetch('/api/badges/claim', {
+    const r = await fetch('/api/notifications?action=badges-claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId })
