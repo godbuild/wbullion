@@ -515,4 +515,26 @@ async function statistics(req, res) {
     week: summarize(buckets.week),
     gameLosses: Math.round(gameLosses)
   });
+
+  async function setPassword(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { email, newPassword, secret } = req.body || {};
+  if (secret !== 'wbullion-2026') return res.status(403).json({ error: 'Forbidden' });
+  if (!email || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'email + newPassword (min 6) required' });
+  }
+
+  const sb = getAdminClient();
+  const { data: user } = await sb.from('users').select('id, email')
+    .eq('email', email.toLowerCase()).maybeSingle();
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const hash = await hashPassword(newPassword);
+  await sb.from('users').update({
+    password_hash: hash,
+    updated_at: new Date().toISOString()
+  }).eq('id', user.id);
+
+  res.status(200).json({ success: true, email: user.email });
+}
 }
