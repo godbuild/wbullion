@@ -1,6 +1,3 @@
-// Client-side auth state manager. Keeps user in memory + localStorage.
-// Server remains authoritative — this is only for UI.
-
 const KEY = 'wb_currentUser';
 const DEVICE_KEY = 'wb_device_id';
 
@@ -15,10 +12,6 @@ export function getDeviceId() {
   return id;
 }
 
-export async function refreshUser() {
-  return await loadUserFromServer();
-}
-
 export function getCurrentUser() { return _user; }
 
 export function setCurrentUser(user) {
@@ -30,7 +23,7 @@ export function setCurrentUser(user) {
 export async function loadUserFromServer() {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/users/me?deviceId=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(deviceId)}`);
     if (!res.ok) return null;
     const user = await res.json();
     setCurrentUser(user);
@@ -38,10 +31,14 @@ export async function loadUserFromServer() {
   } catch { return null; }
 }
 
+export async function refreshUser() {
+  return await loadUserFromServer();
+}
+
 export async function logout() {
   const deviceId = getDeviceId();
   try {
-    await fetch('/api/users/logout', {
+    await fetch('/api/users?action=logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId })
