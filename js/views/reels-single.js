@@ -1,5 +1,4 @@
 import { navigate } from '../router.js';
-import { showToast } from '../modal.js';
 import { compact } from '../format.js';
 
 export async function renderReelSingle(id) {
@@ -8,7 +7,7 @@ export async function renderReelSingle(id) {
   el.innerHTML = `<div style="padding:40px;text-align:center;color:#888;background:#000;min-height:100dvh;">Loading...</div>`;
 
   try {
-    const res = await fetch(`/api/reels/${id}`);
+    const res = await fetch(`/api/reels?action=single&id=${encodeURIComponent(id)}`);
     const data = await res.json();
     if (!res.ok) {
       el.innerHTML = `<div style="padding:60px 20px;text-align:center;color:#888;background:#000;min-height:100dvh;">${data.error || 'Reel not found'}</div>`;
