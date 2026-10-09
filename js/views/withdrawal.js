@@ -51,7 +51,7 @@ export function renderWithdrawal() {
     if (!payload.amount || !payload.accountNumber || !payload.bankName || !payload.accountName) {
       return showAlert('Please fill all fields');
     }
-    const r = await fetch('/api/payments/withdrawal', {
+    const r = await fetch('/api/payments?action=withdrawal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
