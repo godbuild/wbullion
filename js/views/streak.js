@@ -8,7 +8,7 @@ export async function renderStreak() {
   const deviceId = getDeviceId();
   let data;
   try {
-    const res = await fetch(`/api/bonus/streak?deviceId=${encodeURIComponent(deviceId)}`);
+    const res = await fetch(`/api/bonus?action=streak&deviceId=${encodeURIComponent(deviceId)}`);
     data = await res.json();
   } catch { data = { weeks: [] }; }
 
@@ -45,10 +45,10 @@ export async function renderStreak() {
         </div>
         <div class="week-body" style="display:none;margin-top:14px;border-top:1px solid var(--border-color);padding-top:12px;">
           ${w.days.map(d => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;${d.claimed ? 'opacity:0.5;' : ''}">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;${d.claimed ? 'opacity:0.55;' : ''}">
               <div style="display:flex;align-items:center;gap:8px;">
                 ${d.claimed ? '<i class="fas fa-check-circle" style="color:#10b981;"></i>' : '<i class="far fa-circle" style="color:var(--text-secondary);"></i>'}
-                <span>Day ${d.day}</span>
+                <span>Day ${d.day}${d.isDoubleDay ? ' <span style="color:#f59e0b;font-size:11px;">×2</span>' : ''}</span>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-weight:600;">${money(d.amount)}</span>
@@ -61,6 +61,7 @@ export async function renderStreak() {
           </p>
         </div>
       `;
+
       const head = card.querySelector('.week-head');
       const body = card.querySelector('.week-body');
       const arrow = card.querySelector('.week-arrow');
@@ -69,6 +70,35 @@ export async function renderStreak() {
         body.style.display = open ? 'none' : 'block';
         arrow.style.transform = open ? '' : 'rotate(180deg)';
       });
+
+      card.querySelectorAll('.claim-day').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const day = Number(btn.dataset.day);
+          btn.disabled = true;
+          btn.textContent = '...';
+          try {
+            const res = await fetch('/api/bonus?action=claim-day', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ deviceId: getDeviceId(), streakDay: day })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Claim failed');
+            const { showToast } = await import('../modal.js');
+            showToast(`+${money(data.reward)} (Day ${day})`);
+            const { setCurrentUser } = await import('../auth.js');
+            setCurrentUser(data.user);
+            renderStreak();
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = 'Claim';
+            const { showAlert } = await import('../modal.js');
+            showAlert(err.message, 'Error');
+          }
+        });
+      });
+
       wrap.appendChild(card);
     });
   }
