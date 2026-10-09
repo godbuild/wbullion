@@ -6,12 +6,10 @@ import { compact } from '../format.js';
 let _state = {
   reels: [],
   index: 0,
-  muted: false,
   touchStartY: 0,
   touchEndY: 0
 };
 
-// Force dark theme on reels
 function forceDark() {
   document.documentElement.setAttribute('data-reels-theme', 'dark');
 }
@@ -26,11 +24,9 @@ export async function renderReels() {
         <button id="reelsClose" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;">
           <i class="fas fa-close"></i>
         </button>
-        <div style="display:flex;gap:8px;">
-          <button id="reelsSearchBtn" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:16px;cursor:pointer;">
-            <i class="fas fa-search"></i>
-          </button>
-        </div>
+        <button id="reelsSearchBtn" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:16px;cursor:pointer;">
+          <i class="fas fa-search"></i>
+        </button>
       </div>
 
       <div id="searchBar" style="display:none;position:absolute;top:64px;left:16px;right:16px;z-index:55;padding-top:env(safe-area-inset-top);">
@@ -61,14 +57,13 @@ export async function renderReels() {
   });
 
   setupSwipe();
-
   await loadReels();
 }
 
 async function loadReels(q = '') {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/reels/list?deviceId=${encodeURIComponent(deviceId)}&q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}&q=${encodeURIComponent(q)}`);
     const data = await res.json();
     _state.reels = data.reels || [];
     _state.index = 0;
@@ -100,7 +95,6 @@ function renderSlide() {
           <i class="fas fa-play" style="font-size:60px;color:rgba(255,255,255,0.85);"></i>
         </div>
 
-        <!-- Right-side actions -->
         <div style="position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:18px;align-items:center;z-index:5;">
           <button class="reel-profile" data-username="${r.username}" style="background:none;border:none;color:white;cursor:pointer;text-align:center;">
             <div style="width:46px;height:46px;border-radius:50%;background:#dbfedd;color:#1f2937;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:20px;border:2px solid white;">
@@ -117,7 +111,6 @@ function renderSlide() {
           ${isOwner ? `<button class="reel-delete" data-id="${r.id}" style="background:none;border:none;color:white;cursor:pointer;font-size:22px;"><i class="fas fa-trash"></i></button>` : ''}
         </div>
 
-        <!-- Bottom info -->
         <div style="position:absolute;left:12px;right:80px;bottom:100px;color:white;z-index:5;">
           <p style="font-weight:700;font-size:15px;">${r.username}</p>
           ${r.caption ? `<p style="font-weight:600;font-size:14px;margin-top:4px;">${escapeHtml(r.caption)}</p>` : ''}
@@ -131,12 +124,10 @@ function renderSlide() {
     `;
   }).join('');
 
-  // Attach handlers
   wrap.querySelectorAll('.reel-slide').forEach(slide => {
     const video = slide.querySelector('video');
     const playIcon = slide.querySelector('.reel-play-icon');
 
-    // Tap to play/pause
     slide.addEventListener('click', (e) => {
       if (e.target.closest('button') || e.target.closest('.reel-more')) return;
       if (video.paused) {
@@ -152,16 +143,18 @@ function renderSlide() {
       }
     });
 
-    // Autoplay when in view
     const io = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         video.play().catch(() => {});
-        // Increment view once per session
         if (!slide.dataset.viewed) {
           slide.dataset.viewed = '1';
           const reelId = slide.querySelector('.reel-like')?.dataset.id;
           if (reelId) {
-            fetch(`/api/reels/${reelId}/view`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).catch(() => {});
+            fetch(`/api/reels?action=view&id=${reelId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}'
+            }).catch(() => {});
           }
         }
       } else {
@@ -171,7 +164,6 @@ function renderSlide() {
     io.observe(slide);
   });
 
-  // Like/dislike/profile/delete
   wrap.querySelectorAll('.reel-like').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); toggleLike(btn); });
   wrap.querySelectorAll('.reel-dislike').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); toggleDislike(btn); });
   wrap.querySelectorAll('.reel-profile').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); navigate(`/profile/${btn.dataset.username}`); });
@@ -179,18 +171,7 @@ function renderSlide() {
   wrap.querySelectorAll('.reel-more').forEach(el => el.onclick = (e) => {
     e.stopPropagation();
     const p = el.closest('.reel-desc');
-    const isShort = p.textContent.includes('more');
-    if (isShort) {
-      p.textContent = p.dataset.full;
-    } else {
-      p.textContent = p.dataset.short + ' ';
-      const more = document.createElement('span');
-      more.textContent = 'more';
-      more.style.cssText = 'font-weight:600;cursor:pointer;';
-      more.className = 'reel-more';
-      more.onclick = (ev) => { ev.stopPropagation(); p.textContent = p.dataset.full; };
-      p.appendChild(more);
-    }
+    p.textContent = p.dataset.full;
   });
 }
 
@@ -228,7 +209,6 @@ function updatePositions() {
   document.querySelectorAll('.reel-slide').forEach(s => {
     s.style.transform = `translateY(${(Number(s.dataset.index) - _state.index) * 100}%)`;
   });
-  // Pause all and play current
   document.querySelectorAll('.reel-slide video').forEach(v => v.pause());
   const cur = document.querySelector(`.reel-slide[data-index="${_state.index}"] video`);
   cur?.play().catch(() => {});
@@ -242,7 +222,7 @@ async function toggleLike(btn) {
   const wasLiked = (reel.likes || []).includes(user.id);
 
   const action = wasLiked ? 'unlike' : 'like';
-  const res = await fetch(`/api/reels/${id}/like`, {
+  const res = await fetch(`/api/reels?action=like&id=${id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId: getDeviceId(), action })
@@ -250,7 +230,6 @@ async function toggleLike(btn) {
   const data = await res.json();
   if (!res.ok) return showToast(data.error || 'Error');
 
-  // Update state
   if (action === 'like') {
     reel.likes = [...(reel.likes || []), user.id];
     reel.dislikes = (reel.dislikes || []).filter(x => x !== user.id);
@@ -270,7 +249,7 @@ async function toggleDislike(btn) {
 
   if (wasDisliked) return showToast('Already disliked');
 
-  const res = await fetch(`/api/reels/${id}/like`, {
+  const res = await fetch(`/api/reels?action=like&id=${id}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId: getDeviceId(), action: 'dislike' })
@@ -287,7 +266,7 @@ async function toggleDislike(btn) {
 async function deleteReel(id) {
   const ok = await showConfirm('Delete this reel permanently?', 'Delete Reel');
   if (!ok) return;
-  const res = await fetch(`/api/reels/${id}?deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'DELETE' });
+  const res = await fetch(`/api/reels?action=single&id=${id}&deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'DELETE' });
   const data = await res.json();
   if (!res.ok) return showToast(data.error || 'Error');
   showToast('Reel deleted');
