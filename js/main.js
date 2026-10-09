@@ -7,6 +7,7 @@ import { showAlert } from './modal.js';
 import { initWWaiter, wwaiterCopy } from './wwaiter.js';
 import { initRealtime, stopRealtime } from './realtime.js';
 import { loadUserFromServer, getCurrentUser, isBanned } from './auth.js';
+import { startNotifPolling, stopNotifPolling } from './notif-poller.js';
 
 import { renderLogin } from './views/login.js';
 import { renderSignup } from './views/signup.js';
@@ -129,6 +130,7 @@ onRouteChange(() => { updateNavbar(); window.scrollTo(0, 0); });
 
   // Try to load existing user by device
   await loadUserFromServer();
+  if (getCurrentUser()) startNotifPolling();
 
 initWWaiter();
 if (getCurrentUser()) initRealtime();
