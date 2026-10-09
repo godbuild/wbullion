@@ -17,7 +17,7 @@ export async function renderER(label = 'all') {
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
   const deviceId = getDeviceId();
-  const res = await fetch(`/api/users/er?deviceId=${encodeURIComponent(deviceId)}&label=${label}`);
+  const res = await fetch(`/api/users?action=er&deviceId=${encodeURIComponent(deviceId)}&label=${label}`);
   const data = await res.json();
 
   const summary = data.summary || {};
@@ -60,4 +60,4 @@ export async function renderER(label = 'all') {
   document.querySelectorAll('.erTab').forEach(t => {
     t.onclick = () => renderER(t.dataset.label);
   });
-}e
+}
