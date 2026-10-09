@@ -2,16 +2,28 @@ import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
 import { showAlert } from '../modal.js';
 
-let _termsRead = false;      // set true when user returns from /terms having agreed
 let _usernameAvailable = false;
 let _emailAvailable = false;
 
-export function markTermsRead() { _termsRead = true; }
-export function wasTermsRead() { return _termsRead; }
+export function wasTermsRead() {
+  return sessionStorage.getItem('wb_terms_read') === '1';
+}
+
+export function markTermsRead() {
+  sessionStorage.setItem('wb_terms_read', '1');
+}
 
 export function renderSignup() {
   const urlParams = new URLSearchParams(window.location.search);
   const refCode = (urlParams.get('ref') || '').toUpperCase();
+
+  // Load saved draft
+  let draft = {};
+  try { draft = JSON.parse(sessionStorage.getItem('wb_signup_draft') || '{}'); } catch {}
+
+  const termsRead = wasTermsRead();
+  _usernameAvailable = !!draft.usernameAvailable;
+  _emailAvailable = !!draft.emailAvailable;
 
   const el = document.getElementById('viewContainer');
   el.innerHTML = `
@@ -23,41 +35,41 @@ export function renderSignup() {
     <form id="signupForm" style="display:flex;flex-direction:column;gap:16px;">
       <div>
         <label class="wb-label">Full Name</label>
-        <input id="suName" type="text" placeholder="Enter your full name" class="wb-input" required>
+        <input id="suName" type="text" placeholder="Enter your full name" class="wb-input" value="${draft.name || ''}" required>
       </div>
       <div>
         <label class="wb-label">Set Username</label>
         <div class="at-wrap">
           <span class="at-prefix">@</span>
-          <input id="suUsername" type="text" placeholder="username" class="wb-input at-input" maxlength="30" required>
+          <input id="suUsername" type="text" placeholder="username" class="wb-input at-input" maxlength="30" value="${draft.username || ''}" required>
         </div>
-        <p id="usernameStatus" style="font-size:12px;margin-top:4px;color:var(--text-secondary);"></p>
+        <p id="usernameStatus" style="font-size:12px;margin-top:4px;color:var(--text-secondary);">${_usernameAvailable ? '<span style="color:#10b981;">Available</span>' : ''}</p>
       </div>
       <div>
         <label class="wb-label">Email</label>
-        <input id="suEmail" type="email" placeholder="Enter your email" class="wb-input" required>
-        <p id="emailStatus" style="font-size:12px;margin-top:4px;color:var(--text-secondary);"></p>
+        <input id="suEmail" type="email" placeholder="Enter your email" class="wb-input" value="${draft.email || ''}" required>
+        <p id="emailStatus" style="font-size:12px;margin-top:4px;color:var(--text-secondary);">${_emailAvailable ? '<span style="color:#10b981;">Available</span>' : ''}</p>
       </div>
       <div>
         <label class="wb-label">Set Up Password</label>
         <div class="pw-wrap">
-          <input id="suPassword" type="password" placeholder="Create a password" class="wb-input" required>
+          <input id="suPassword" type="password" placeholder="Create a password" class="wb-input" value="${draft.password || ''}" required>
           <button type="button" class="pw-eye" data-target="suPassword"><i class="fas fa-eye"></i></button>
         </div>
       </div>
       <div>
         <label class="wb-label">Confirm Password</label>
         <div class="pw-wrap">
-          <input id="suConfirm" type="password" placeholder="Confirm your password" class="wb-input" required>
+          <input id="suConfirm" type="password" placeholder="Confirm your password" class="wb-input" value="${draft.confirm || ''}" required>
           <button type="button" class="pw-eye" data-target="suConfirm"><i class="fas fa-eye"></i></button>
         </div>
       </div>
       <div>
         <label class="wb-label">Referral Code (Optional)</label>
-        <input id="suReferral" type="text" placeholder="Enter referral code" class="wb-input" value="${refCode}" ${refCode ? 'readonly style="background:#e5e7eb;color:black;"' : ''} maxlength="15">
+        <input id="suReferral" type="text" placeholder="Enter referral code" class="wb-input" value="${draft.referral || refCode}" ${refCode ? 'readonly style="background:#e5e7eb;color:black;"' : ''} maxlength="15">
       </div>
       <div style="display:flex;align-items:flex-start;gap:10px;font-size:14px;">
-        <input id="suTerms" type="checkbox" disabled style="margin-top:3px;transform:scale(1.2);">
+        <input id="suTerms" type="checkbox" ${termsRead ? 'checked' : ''} disabled style="margin-top:3px;transform:scale(1.2);">
         <label for="suTerms">I have read the <a id="termsLink" style="color:var(--green);font-weight:bold;text-decoration:underline;cursor:pointer;">terms and policies</a></label>
       </div>
       <button type="submit" id="suSubmit" class="wb-btn-primary" disabled style="opacity:0.5;pointer-events:none;">Sign Up</button>
@@ -75,7 +87,6 @@ export function renderSignup() {
     });
   });
 
-  // Username — lowercase only, live check
   const userIn = document.getElementById('suUsername');
   const userStatus = document.getElementById('usernameStatus');
   let userTimer;
@@ -84,12 +95,17 @@ export function renderSignup() {
     userIn.value = userIn.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
     userIn.setSelectionRange(p, p);
     clearTimeout(userTimer);
-    if (!userIn.value) { userStatus.textContent = ''; _usernameAvailable = false; refreshSubmit(); return; }
+    if (!userIn.value) {
+      userStatus.textContent = '';
+      _usernameAvailable = false;
+      refreshSubmit();
+      return;
+    }
     userStatus.textContent = 'Checking...';
     userStatus.style.color = 'var(--text-secondary)';
     userTimer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/users/check-username?username=${encodeURIComponent(userIn.value)}`);
+        const res = await fetch(`/api/users?action=check-username&username=${encodeURIComponent(userIn.value)}`);
         const data = await res.json();
         if (data.available) {
           userStatus.textContent = 'Available';
@@ -100,12 +116,14 @@ export function renderSignup() {
           userStatus.style.color = '#ef4444';
           _usernameAvailable = false;
         }
-      } catch { userStatus.textContent = ''; _usernameAvailable = false; }
+      } catch {
+        userStatus.textContent = '';
+        _usernameAvailable = false;
+      }
       refreshSubmit();
     }, 350);
   });
 
-  // Email — lowercase, live check
   const emailIn = document.getElementById('suEmail');
   const emailStatus = document.getElementById('emailStatus');
   let emailTimer;
@@ -124,7 +142,7 @@ export function renderSignup() {
     emailStatus.style.color = 'var(--text-secondary)';
     emailTimer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/users/check-email?email=${encodeURIComponent(emailIn.value)}`);
+        const res = await fetch(`/api/users?action=check-email&email=${encodeURIComponent(emailIn.value)}`);
         const data = await res.json();
         if (data.available) {
           emailStatus.textContent = 'Available';
@@ -135,12 +153,14 @@ export function renderSignup() {
           emailStatus.style.color = '#ef4444';
           _emailAvailable = false;
         }
-      } catch { emailStatus.textContent = ''; _emailAvailable = false; }
+      } catch {
+        emailStatus.textContent = '';
+        _emailAvailable = false;
+      }
       refreshSubmit();
     }, 400);
   });
 
-  // Referral — uppercase, alphanumeric only
   const refIn = document.getElementById('suReferral');
   refIn.addEventListener('input', () => {
     const p = refIn.selectionStart;
@@ -148,19 +168,13 @@ export function renderSignup() {
     refIn.setSelectionRange(p, p);
   });
 
-  // Terms link → /terms
   document.getElementById('termsLink').addEventListener('click', () => {
+    saveDraft();
     sessionStorage.setItem('wb_terms_return', '/signup');
     navigate('/terms');
   });
 
-  // If user just returned from reading terms, auto-check
-  if (_termsRead) {
-    const cb = document.getElementById('suTerms');
-    cb.checked = true;
-  }
-
-  ['suName','suPassword','suConfirm'].forEach(id => {
+  ['suName', 'suPassword', 'suConfirm'].forEach(id => {
     document.getElementById(id).addEventListener('input', refreshSubmit);
   });
 
@@ -175,40 +189,56 @@ export function renderSignup() {
     btn.style.opacity = ok ? '1' : '0.5';
     btn.style.pointerEvents = ok ? 'auto' : 'none';
   }
+
+  function saveDraft() {
+    sessionStorage.setItem('wb_signup_draft', JSON.stringify({
+      name: document.getElementById('suName').value,
+      username: document.getElementById('suUsername').value,
+      email: document.getElementById('suEmail').value,
+      password: document.getElementById('suPassword').value,
+      confirm: document.getElementById('suConfirm').value,
+      referral: document.getElementById('suReferral').value,
+      usernameAvailable: _usernameAvailable,
+      emailAvailable: _emailAvailable
+    }));
+  }
+
+  // Clear terms flag now that we've consumed it
+  if (termsRead) sessionStorage.removeItem('wb_terms_read');
+
   refreshSubmit();
 
-  document.getElementById('signupForm').addEventListener('submit', handleSignup);
-}
+  document.getElementById('signupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('suSubmit');
+    const payload = {
+      fullName: document.getElementById('suName').value.trim(),
+      username: '@' + document.getElementById('suUsername').value.trim().toLowerCase(),
+      email: document.getElementById('suEmail').value.trim().toLowerCase(),
+      password: document.getElementById('suPassword').value,
+      referralCode: document.getElementById('suReferral').value.trim(),
+      deviceId: getDeviceId()
+    };
 
-async function handleSignup(e) {
-  e.preventDefault();
-  const btn = document.getElementById('suSubmit');
-  const payload = {
-    fullName: document.getElementById('suName').value.trim(),
-    username: '@' + document.getElementById('suUsername').value.trim().toLowerCase(),
-    email: document.getElementById('suEmail').value.trim().toLowerCase(),
-    password: document.getElementById('suPassword').value,
-    referralCode: document.getElementById('suReferral').value.trim(),
-    deviceId: getDeviceId()
-  };
+    btn.disabled = true;
+    btn.textContent = 'Creating account...';
 
-  btn.disabled = true;
-  btn.textContent = 'Creating account...';
-
-  try {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Signup failed');
-    setCurrentUser(data.user);
-    _termsRead = false;
-    navigate('/activation');
-  } catch (err) {
-    await showAlert(err.message, 'Signup Failed');
-    btn.disabled = false;
-    btn.textContent = 'Sign Up';
-  }
+    try {
+      const res = await fetch('/api/auth?action=register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Signup failed');
+      setCurrentUser(data.user);
+      sessionStorage.removeItem('wb_signup_draft');
+      sessionStorage.removeItem('wb_terms_read');
+      navigate('/activation');
+    } catch (err) {
+      await showAlert(err.message, 'Signup Failed');
+      btn.disabled = false;
+      btn.textContent = 'Sign Up';
+    }
+  });
 }
