@@ -29,7 +29,7 @@ function toast(msg) {
 
 // ============ Auth ============
 async function initAuth() {
-  const res = await fetch(`${API}/admin/auth?action=session`, {
+  const res = await fetch(`${API}/admin?action=session`, {
     headers: { 'x-admin-device': deviceId }
   });
   const data = await res.json();
@@ -61,7 +61,7 @@ function renderAuth(sessionData) {
   document.getElementById('loginBtn').onclick = async () => {
     const password = document.getElementById('adPass').value;
     const adminAccountPassword = document.getElementById('adAccPass')?.value || '';
-    const res = await fetch(`${API}/admin/auth`, {
+    const res = await fetch(`${API}/admin/auth`, { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-device': deviceId },
       body: JSON.stringify({ password, adminAccountPassword, deviceId })
@@ -585,7 +585,7 @@ async function loadStatistics(range) {
 // ============ Logout ============
 document.getElementById('logoutBtn').onclick = async () => {
   if (!confirm('Logout from admin?')) return;
-  await fetch(`${API}/admin/auth?action=logout`, { method: 'POST', headers: { 'x-admin-device': deviceId }, body: JSON.stringify({ deviceId }) });
+  await fetch(`${API}/admin?action=logout`, { method: 'POST', headers: { 'x-admin-device': deviceId }, body: JSON.stringify({ deviceId }) });
   location.reload();
 };
 
