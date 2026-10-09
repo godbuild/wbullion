@@ -14,8 +14,7 @@ let _state = {
   scene: null,
   kite: null,
   crashHistory: [],
-  intervalId: null,
-  cloudObserver: null
+  intervalId: null
 };
 
 const HISTORY_KEY = 'wb_leveller_history';
@@ -24,7 +23,6 @@ export async function renderLeveller() {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  // Load crash history
   _state.crashHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]').slice(0, 20);
 
   const theme = document.documentElement.getAttribute('data-theme') || 'system';
@@ -55,15 +53,11 @@ export async function renderLeveller() {
     </div>
 
     <div style="display:flex;gap:10px;margin-bottom:12px;">
-      <input id="levellerBet" type="number" inputmode="decimal" placeholder="Bet amount (min 10)" class="wb-input" style="flex:1;" ${_state.running ? 'disabled' : ''}>
+      <input id="levellerBet" type="number" inputmode="decimal" placeholder="Bet amount (min 10)" class="wb-input" style="flex:1;">
     </div>
 
-    <div style="display:grid;grid-template-columns:${_state.running ? '1fr 1fr' : '1fr'};gap:10px;">
-      ${!_state.running ? `<button id="startLeveller" class="wb-btn-primary"><i class="fas fa-play"></i> Start Game</button>` : ''}
-      ${_state.running ? `
-        <button id="startLeveller" class="wb-btn-primary" disabled style="opacity:0.5;">Running...</button>
-        <button id="cashoutLeveller" class="wb-btn-primary" style="background:#f59e0b;"><i class="fas fa-hand-holding-usd"></i> Cashout <span id="cashoutValue">1.00x</span></button>
-      ` : ''}
+    <div id="levellerButtons" style="display:grid;grid-template-columns:1fr;gap:10px;">
+      <button id="startLeveller" class="wb-btn-primary"><i class="fas fa-play"></i> Start Game</button>
     </div>
   `;
 
@@ -74,7 +68,6 @@ export async function renderLeveller() {
   };
 
   document.getElementById('startLeveller').onclick = startRound;
-  document.getElementById('cashoutLeveller')?.addEventListener('click', cashout);
 
   await initBabylon(isDark);
 }
@@ -90,7 +83,6 @@ async function initBabylon(isDark) {
 
   const camera = new BABYLON.ArcRotateCamera('cam', -Math.PI / 2, Math.PI / 2.4, 12, new BABYLON.Vector3(0, 2, 0), scene);
   camera.inputs.clear();
-  camera.attachControl(canvas, false);
 
   const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
   hemi.intensity = isDark ? 0.5 : 0.9;
@@ -100,27 +92,18 @@ async function initBabylon(isDark) {
     dir.intensity = 0.6;
   }
 
-  // Ground plane
   const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 20, height: 20 }, scene);
   const gm = new BABYLON.StandardMaterial('gmat', scene);
   gm.diffuseColor = isDark ? new BABYLON.Color3(0.1, 0.15, 0.25) : new BABYLON.Color3(0.55, 0.75, 0.35);
   ground.material = gm;
 
-  // Background clouds
   createClouds(scene, isDark);
-
-  // Kite (a diamond shape)
-  const kite = createKite(scene, isDark);
-  _state.kite = kite;
-  kite.position = new BABYLON.Vector3(0, 1.5, 0);
-
-  // Tail
-  const tail = createTail(scene, isDark);
-  _state.tail = tail;
+  _state.kite = createKite(scene);
+  _state.kite.position = new BABYLON.Vector3(0, 1.5, 0);
+  _state.tail = createTail(scene);
 
   _state.engine = engine;
   _state.scene = scene;
-  _state.camera = camera;
 
   engine.runRenderLoop(() => {
     updateKiteMotion();
@@ -132,21 +115,14 @@ async function initBabylon(isDark) {
   function updateKiteMotion() {
     if (!_state.kite) return;
     const t = performance.now() / 1000;
-    // Base position follows odds
     const targetY = 1.5 + _state.currentOdds * 0.8;
-    // Sway
     const swayX = Math.sin(t * 1.3) * 0.6;
     const swayZ = Math.cos(t * 0.9) * 0.4;
-    // Rising/falling based on state
     _state.kite.position.y += (targetY - _state.kite.position.y) * 0.08;
     _state.kite.position.x = swayX;
     _state.kite.position.z = swayZ;
-
-    // Rotate kite for realism
     _state.kite.rotation.z = Math.sin(t * 1.5) * 0.15;
     _state.kite.rotation.y = t * 0.3;
-
-    // Tail follows kite
     if (_state.tail) {
       _state.tail.position.x = _state.kite.position.x;
       _state.tail.position.z = _state.kite.position.z;
@@ -156,45 +132,36 @@ async function initBabylon(isDark) {
   }
 }
 
-function createKite(scene, isDark) {
-  // Create a diamond from a ribbon-like shape
+function createKite(scene) {
   const root = new BABYLON.TransformNode('kiteRoot', scene);
-
-  // Main diamond
   const kiteMat = new BABYLON.StandardMaterial('kiteMat', scene);
   kiteMat.diffuseColor = new BABYLON.Color3(1, 0.4, 0.2);
   kiteMat.emissiveColor = new BABYLON.Color3(0.3, 0.1, 0.05);
-  kiteMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
   const diamond = BABYLON.MeshBuilder.CreatePolyhedron('diamond', { type: 1, size: 1 }, scene);
   diamond.material = kiteMat;
   diamond.scaling = new BABYLON.Vector3(0.6, 1.4, 0.15);
   diamond.parent = root;
 
-  // Cross-frame bars
   const barMat = new BABYLON.StandardMaterial('barMat', scene);
   barMat.diffuseColor = new BABYLON.Color3(0.25, 0.15, 0.05);
 
   const barH = BABYLON.MeshBuilder.CreateBox('barH', { width: 1.6, height: 0.05, depth: 0.05 }, scene);
-  barH.material = barMat;
-  barH.parent = root;
+  barH.material = barMat; barH.parent = root;
 
   const barV = BABYLON.MeshBuilder.CreateBox('barV', { width: 0.05, height: 2.2, depth: 0.05 }, scene);
-  barV.material = barMat;
-  barV.parent = root;
+  barV.material = barMat; barV.parent = root;
 
   return root;
 }
 
-function createTail(scene, isDark) {
+function createTail(scene) {
   const root = new BABYLON.TransformNode('tailRoot', scene);
   const mat = new BABYLON.StandardMaterial('tailMat', scene);
   mat.diffuseColor = new BABYLON.Color3(1, 0.9, 0.3);
-
   for (let i = 0; i < 6; i++) {
     const bow = BABYLON.MeshBuilder.CreateBox(`bow${i}`, { width: 0.15, height: 0.15, depth: 0.05 }, scene);
-    bow.material = mat;
-    bow.parent = root;
+    bow.material = mat; bow.parent = root;
     bow.position = new BABYLON.Vector3(i % 2 === 0 ? -0.15 : 0.15, -i * 0.35, 0);
   }
   return root;
@@ -211,8 +178,6 @@ function createClouds(scene, isDark) {
     cloud.material = cloudMat;
     cloud.position = new BABYLON.Vector3(-8 + i * 4, 5 + Math.random() * 2, -6);
     cloud.scaling.y = 0.5;
-
-    // Drift
     let x = cloud.position.x;
     scene.onBeforeRenderObservable.add(() => {
       x += 0.005;
@@ -236,10 +201,10 @@ async function startRound() {
   const betInput = document.getElementById('levellerBet');
   const bet = Number(betInput.value);
   if (!bet || bet < 10) return showAlert('Minimum bet is NGN 10');
-  if (bet > Number((await currentBalance())) ) return showAlert('Insufficient balance');
+  const bal = await currentBalance();
+  if (bet > bal) return showAlert('Insufficient balance');
 
-  // Deduct bet via balance-op
-  const r = await fetch('/api/games/balance-op', {
+  const r = await fetch('/api/games?action=balance-op', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       deviceId: getDeviceId(), amount: bet, operation: 'subtract',
@@ -250,8 +215,7 @@ async function startRound() {
   if (!r.ok) return showAlert(d.error);
   if (d.user) setCurrentUser(d.user);
 
-  // Get crash point
-  const cr = await fetch('/api/games/odds', {
+  const cr = await fetch('/api/games?action=odds', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId: getDeviceId(), game: 'leveller' })
   });
@@ -264,61 +228,36 @@ async function startRound() {
   _state.cashedOut = false;
   _state.cashoutAt = 0;
 
-  // Update UI
   document.getElementById('betOverlay').style.display = 'none';
   document.getElementById('crashFlash').style.display = 'none';
   document.getElementById('oddsOverlay').textContent = '1.00x';
 
-  // Rerender controls
-  const container = document.getElementById('viewContainer');
-  const startBtn = document.getElementById('startLeveller');
-  startBtn.disabled = true;
-  startBtn.textContent = 'Running...';
-  startBtn.style.opacity = '0.5';
+  const buttons = document.getElementById('levellerButtons');
+  buttons.style.gridTemplateColumns = '1fr 1fr';
+  buttons.innerHTML = `
+    <button id="startLeveller" class="wb-btn-primary" disabled style="opacity:0.5;">Running...</button>
+    <button id="cashoutLeveller" class="wb-btn-primary" style="background:#f59e0b;"><i class="fas fa-hand-holding-usd"></i> Cashout</button>
+  `;
+  document.getElementById('cashoutLeveller').onclick = cashout;
 
-  // Add cashout button
-  if (!document.getElementById('cashoutLeveller')) {
-    const wrap = startBtn.parentElement;
-    wrap.style.gridTemplateColumns = '1fr 1fr';
-    const cashBtn = document.createElement('button');
-    cashBtn.id = 'cashoutLeveller';
-    cashBtn.className = 'wb-btn-primary';
-    cashBtn.style.background = '#f59e0b';
-    cashBtn.innerHTML = '<i class="fas fa-hand-holding-usd"></i> Cashout <span id="cashoutValue">1.00x</span>';
-    cashBtn.onclick = cashout;
-    wrap.appendChild(cashBtn);
-  } else {
-    document.getElementById('cashoutLeveller').style.display = 'block';
-  }
-
-  // Start ticking
   const startTime = performance.now();
   _state.intervalId = setInterval(() => {
     const elapsed = (performance.now() - startTime) / 1000;
-    // Exponential-ish growth: 1.0x → ~10x at 10s
     _state.currentOdds = Math.pow(1.15, elapsed * 3);
-
     const oddsEl = document.getElementById('oddsOverlay');
     oddsEl.textContent = _state.currentOdds.toFixed(2) + 'x';
-
-    const cashVal = document.getElementById('cashoutValue');
-    if (cashVal) cashVal.textContent = Math.floor(_state.bet * _state.currentOdds) ? `NGN ${money(_state.bet * _state.currentOdds)}` : _state.currentOdds.toFixed(2) + 'x';
-
-    // Crash?
-    if (_state.currentOdds >= _state.crashPoint && !_state.cashedOut) {
-      triggerCrash();
-    }
+    if (_state.currentOdds >= _state.crashPoint && !_state.cashedOut) triggerCrash();
   }, 60);
 }
 
 async function cashout() {
   if (!_state.running || _state.cashedOut) return;
-  if (_state.currentOdds >= _state.crashPoint) return; // too late
+  if (_state.currentOdds >= _state.crashPoint) return;
   _state.cashedOut = true;
   _state.cashoutAt = _state.currentOdds;
   clearInterval(_state.intervalId);
 
-  const r = await fetch('/api/games/leveller-cashout', {
+  const r = await fetch('/api/games?action=leveller-cashout', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       deviceId: getDeviceId(), bet: _state.bet,
@@ -329,7 +268,6 @@ async function cashout() {
   const d = await r.json();
   if (!r.ok) return showAlert(d.error);
   if (d.user) setCurrentUser(d.user);
-
   showToast(`Cashed out @ ${_state.cashoutAt.toFixed(2)}x · +${money(d.payout)}`);
   endRound();
 }
@@ -343,13 +281,11 @@ async function triggerCrash() {
   text.textContent = _state.crashPoint.toFixed(2) + 'x';
   flash.style.display = 'flex';
 
-  // Add to history
   const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
   hist.unshift(_state.crashPoint);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 20)));
 
-  // Notify server
-  await fetch('/api/games/leveller-cashout', {
+  await fetch('/api/games?action=leveller-cashout', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       deviceId: getDeviceId(), bet: _state.bet,
@@ -358,10 +294,7 @@ async function triggerCrash() {
   });
   showToast(`Crashed @ ${_state.crashPoint.toFixed(2)}x · Lost ${money(_state.bet)}`);
 
-  // Reset kite
-  setTimeout(() => {
-    endRound();
-  }, 2500);
+  setTimeout(() => endRound(), 2500);
 }
 
 function endRound() {
@@ -373,15 +306,10 @@ function endRound() {
     if (flash) flash.style.display = 'none';
     const overlay = document.getElementById('betOverlay');
     if (overlay) overlay.style.display = 'flex';
-    const cashBtn = document.getElementById('cashoutLeveller');
-    if (cashBtn) cashBtn.style.display = 'none';
-    const startBtn = document.getElementById('startLeveller');
-    if (startBtn) {
-      startBtn.disabled = false;
-      startBtn.textContent = 'Start Game';
-      startBtn.style.opacity = '1';
-      startBtn.onclick = startRound;
-    }
+    const buttons = document.getElementById('levellerButtons');
+    buttons.style.gridTemplateColumns = '1fr';
+    buttons.innerHTML = `<button id="startLeveller" class="wb-btn-primary"><i class="fas fa-play"></i> Start Game</button>`;
+    document.getElementById('startLeveller').onclick = startRound;
     if (_state.kite) _state.kite.position.y = 1.5;
   }, 1500);
 }
@@ -392,7 +320,7 @@ function cleanup() {
 }
 
 async function currentBalance() {
-  const r = await fetch(`/api/users/me?deviceId=${encodeURIComponent(getDeviceId())}`);
+  const r = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
   const u = await r.json();
   return u.balance || 0;
 }
