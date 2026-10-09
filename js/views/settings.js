@@ -82,10 +82,10 @@ export function renderSettings() {
       <button id="deleteBtn" style="padding:14px;background:var(--bg-secondary);color:#ef4444;border:none;border-radius:12px;font-weight:600;cursor:pointer;">Delete Account</button>
     </div>
 
-<div class="wb-footer">
-  &copy; ${new Date().getFullYear()} | Made In Nigeria 🇳🇬<br>
-  <span style="opacity:0.6;">W Bullion — v1.0.1</span>
-</div>
+    <div class="wb-footer" style="text-align:center;font-size:12px;color:var(--text-secondary);margin-top:30px;line-height:1.8;">
+      &copy; ${new Date().getFullYear()} | Made In Nigeria 🇳🇬<br>
+      <span style="opacity:0.6;">W Bullion — v1.0.1</span>
+    </div>
   `;
 
   document.getElementById('closeSettings').onclick = () => navigate('/home');
@@ -110,7 +110,7 @@ export function renderSettings() {
       const ok = await showConfirm('Your account will be private. No one can search you or view you. You will not be able to create reels, view profiles or follow them, like reels.', 'Confirm');
       if (!ok) { e.target.checked = true; return; }
     }
-    const r = await fetch('/api/users/visibility', {
+    const r = await fetch('/api/users?action=visibility', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId: getDeviceId(), visibility: on })
     });
@@ -129,21 +129,19 @@ export function renderSettings() {
   document.getElementById('termsBtn').onclick = () => navigate('/terms');
   document.getElementById('helpBtn').onclick = () => navigate('/help');
 
-document.getElementById('logoutBtn').onclick = async () => {
-  const ok = await showConfirm('Logout of this device?', 'Logout');
-  if (!ok) return;
-  const { stopRealtime } = await import('../realtime.js');
-  stopRealtime();
-  await logout();
-  navigate('/login');
-};
+  document.getElementById('logoutBtn').onclick = async () => {
+    const ok = await showConfirm('Logout of this device?', 'Logout');
+    if (!ok) return;
+    await logout();
+    navigate('/login');
+  };
 
   document.getElementById('deleteBtn').onclick = async () => {
     const ok = await showConfirm('Delete your account permanently? This cannot be undone.', 'Delete Account');
     if (!ok) return;
     const ok2 = await showConfirm('Final warning: all data will be lost.', 'Confirm Deletion');
     if (!ok2) return;
-    const r = await fetch(`/api/users/delete?deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'POST' });
+    const r = await fetch(`/api/users?action=delete&deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'POST' });
     const d = await r.json();
     if (!r.ok) return showToast(d.error);
     await logout();
