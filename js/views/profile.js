@@ -1,16 +1,7 @@
 import { navigate } from '../router.js';
 import { getCurrentUser, getDeviceId, setCurrentUser } from '../auth.js';
-import { showToast, showAlert, showConfirm, showPrompt } from '../modal.js';
+import { showToast, showAlert, showConfirm } from '../modal.js';
 import { money, compact } from '../format.js';
-
-// Fire-and-forget profile view tracker
-if (target !== '@' + (getCurrentUser()?.username || '').replace(/^@/, '')) {
-  fetch('/api/users/track-view', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId: getDeviceId(), username: target })
-  }).catch(() => {});
-}
 
 export async function renderProfile(username) {
   const el = document.getElementById('viewContainer');
@@ -18,11 +9,21 @@ export async function renderProfile(username) {
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
   const deviceId = getDeviceId();
-  const target = username || '@' + (getCurrentUser()?.username || '').replace(/^@/, '');
+  const me = getCurrentUser();
+  const target = username || '@' + (me?.username || '').replace(/^@/, '');
   const clean = target.startsWith('@') ? target.toLowerCase() : '@' + target.toLowerCase();
 
+  // Fire-and-forget view tracker (skip own profile)
+  if (clean !== (me?.username || '').toLowerCase()) {
+    fetch('/api/users?action=track-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId, username: target })
+    }).catch(() => {});
+  }
+
   try {
-    const res = await fetch(`/api/users/profile?deviceId=${encodeURIComponent(deviceId)}&username=${encodeURIComponent(clean)}`);
+    const res = await fetch(`/api/users?action=profile&deviceId=${encodeURIComponent(deviceId)}&username=${encodeURIComponent(clean)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to load');
 
@@ -38,7 +39,6 @@ export async function renderProfile(username) {
               <button id="editBtn" class="wb-close" style="font-size:18px;"><i class="fas fa-pencil"></i></button>
               <button id="notifBtn" class="wb-close" style="font-size:18px;position:relative;">
                 <i class="fas fa-bell"></i>
-                <span id="notifDot" style="display:none;position:absolute;top:0;right:0;width:8px;height:8px;background:#ef4444;border-radius:50%;"></span>
               </button>
             ` : ''}
             <button id="closeProfile" class="wb-close" style="font-size:18px;"><i class="fas fa-close"></i></button>
@@ -94,7 +94,6 @@ export async function renderProfile(username) {
       </div>
     `;
 
-    // Reels grid
     const grid = document.getElementById('reelsGrid');
     for (const r of reels) {
       const tile = document.createElement('div');
@@ -113,19 +112,17 @@ export async function renderProfile(username) {
       grid.appendChild(tile);
     }
 
-    // Handlers
     document.getElementById('closeProfile').onclick = () => history.back();
 
     document.getElementById('followBtn')?.addEventListener('click', async () => {
-      const isFollowing = user.following;
-      const action = isFollowing ? 'unfollow' : 'follow';
-      const res = await fetch('/api/users/follow', {
+      const action = user.following ? 'unfollow' : 'follow';
+      const res2 = await fetch('/api/users?action=follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId, username: user.username, action })
       });
-      const d = await res.json();
-      if (!res.ok) return showToast(d.error || 'Error');
+      const d = await res2.json();
+      if (!res2.ok) return showToast(d.error || 'Error');
       showToast(d.message);
       renderProfile(user.username);
     });
@@ -142,7 +139,7 @@ export async function renderProfile(username) {
       e.stopPropagation();
       const ok = await showConfirm('Delete this reel?', 'Delete');
       if (!ok) return;
-      await fetch(`/api/reels/${b.dataset.id}?deviceId=${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
+      await fetch(`/api/reels?action=single&id=${b.dataset.id}&deviceId=${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
       showToast('Deleted');
       renderProfile(user.username);
     });
@@ -184,8 +181,7 @@ function showEditModal(user) {
     const email = document.getElementById('edEmail').value.trim();
     const bio = document.getElementById('edBio').value.trim();
 
-    // Profile
-    const r1 = await fetch('/api/users/update-me', {
+    const r1 = await fetch('/api/users?action=update-me', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId, fullName: name, username: uname, email, bio })
@@ -194,12 +190,11 @@ function showEditModal(user) {
     if (!r1.ok) return showAlert(d1.error, 'Error');
     setCurrentUser(d1.user);
 
-    // Password (if any field filled)
     const cp = document.getElementById('edCurrent').value;
     const np = document.getElementById('edNew').value;
     const cf = document.getElementById('edConfirm').value;
     if (cp || np || cf) {
-      const r2 = await fetch('/api/users/change-password', {
+      const r2 = await fetch('/api/users?action=change-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId, currentPassword: cp, newPassword: np, confirmPassword: cf })
