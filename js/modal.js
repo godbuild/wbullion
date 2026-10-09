@@ -3,25 +3,33 @@ const root = () => document.getElementById('modalRoot');
 function buildModal({ title, message, buttons }) {
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
   backdrop.innerHTML = `
-    <div class="modal-box">
+    <div class="modal-box" style="pointer-events:auto;">
       ${title ? `<h3>${title}</h3>` : ''}
       ${message ? `<p>${message}</p>` : ''}
       <div class="modal-actions"></div>
     </div>
   `;
   const actions = backdrop.querySelector('.modal-actions');
+  const close = () => backdrop.remove();
+
   buttons.forEach(btn => {
     const el = document.createElement('button');
+    el.type = 'button';
     el.className = `modal-btn ${btn.style || 'primary'}`;
     el.textContent = btn.label;
-    el.onclick = () => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
       close();
-      btn.onClick?.();
-    };
+      try { btn.onClick?.(); } catch (e) { console.error(e); }
+    });
     actions.appendChild(el);
   });
-  return { backdrop, close: () => backdrop.remove() };
+
+  return { backdrop, close };
 }
 
 export function showAlert(message, title = '') {
@@ -51,24 +59,25 @@ export function showPrompt(message, title = '', defaultValue = '') {
   return new Promise(resolve => {
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;';
     backdrop.innerHTML = `
-      <div class="modal-box">
+      <div class="modal-box" style="pointer-events:auto;">
         ${title ? `<h3>${title}</h3>` : ''}
         <p>${message}</p>
         <input type="text" class="modal-input" value="${defaultValue}"
                style="width:100%;padding:12px;border:2px solid var(--border-color);border-radius:10px;background:var(--bg-primary);color:var(--text-primary);font-size:15px;outline:none;margin-bottom:16px;">
         <div class="modal-actions">
-          <button class="modal-btn ghost">Cancel</button>
-          <button class="modal-btn primary">OK</button>
+          <button type="button" class="modal-btn ghost" style="cursor:pointer;">Cancel</button>
+          <button type="button" class="modal-btn primary" style="cursor:pointer;">OK</button>
         </div>
       </div>
     `;
     const input = backdrop.querySelector('.modal-input');
     const [cancelBtn, okBtn] = backdrop.querySelectorAll('.modal-btn');
     const close = (val) => { backdrop.remove(); resolve(val); };
-    cancelBtn.onclick = () => close(null);
-    okBtn.onclick = () => close(input.value);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') close(input.value); });
+    cancelBtn.addEventListener('click', (ev) => { ev.preventDefault(); close(null); });
+    okBtn.addEventListener('click', (ev) => { ev.preventDefault(); close(input.value); });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') close(input.value); });
     root().appendChild(backdrop);
     input.focus();
   });
@@ -87,11 +96,12 @@ export function showToast(message, duration = 2000) {
     padding: '10px 20px',
     borderRadius: '20px',
     fontSize: '14px',
-    zIndex: 2000,
+    zIndex: 10000,
     opacity: '0',
-    transition: 'opacity 0.25s'
+    transition: 'opacity 0.25s',
+    pointerEvents: 'none'
   });
-  root().appendChild(el);
+  document.body.appendChild(el);
   requestAnimationFrame(() => el.style.opacity = '1');
   setTimeout(() => {
     el.style.opacity = '0';
