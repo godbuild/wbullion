@@ -1,19 +1,33 @@
-import { navigate, getCurrentPath } from './router.js';
+import { getCurrentPath } from './router.js';
+import { getCurrentUser } from './auth.js';
 
-const HIDE_ON = ['/reels', '/games', '/profile'];
+const HIDE_ON = [
+  '/reels',
+  '/games',
+  '/profile',
+  '/login',
+  '/signup',
+  '/activation',
+  '/terms'
+];
 
 export function updateNavbar() {
   const nav = document.getElementById('bottomNav');
-  const path = getCurrentPath();
+  if (!nav) return;
 
-  const shouldHide = HIDE_ON.some(p => path === p || path.startsWith(p + '/'));
+  const path = getCurrentPath();
+  const user = getCurrentUser();
+
+  const shouldHide =
+    !user ||
+    HIDE_ON.some(p => path === p || path.startsWith(p + '/'));
+
   if (shouldHide) {
     nav.classList.add('hidden');
     return;
   }
   nav.classList.remove('hidden');
 
-  // Highlight active tab
   nav.querySelectorAll('.nav-item').forEach(btn => {
     const route = btn.dataset.route;
     const isActive = route === '/more'
