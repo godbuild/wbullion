@@ -3,8 +3,6 @@ import { getDeviceId, setCurrentUser } from '../auth.js';
 import { showToast } from '../modal.js';
 import { money } from '../format.js';
 
-const COMPUTER_LOSS_PCT = 0.15;
-
 export function renderRPS() {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `
@@ -39,7 +37,7 @@ export function renderRPS() {
     btn.onmouseleave = () => btn.style.transform = 'scale(1)';
     btn.onclick = async () => {
       const playerChoice = btn.dataset.choice;
-      const res = await fetch('/api/games/odds', {
+      const res = await fetch('/api/games?action=odds', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: getDeviceId(), game: 'rps' })
       });
@@ -47,13 +45,13 @@ export function renderRPS() {
       const cc = data.computer;
 
       const result = determineWinner(playerChoice, cc);
-      const el = document.getElementById('rpsResult');
+      const rEl = document.getElementById('rpsResult');
       const icons = { rock: 'fa-fist-raised', paper: 'fa-file', scissors: 'fa-scissors' };
 
       if (result === 'win') {
         wins++;
         await creditWin(200, 'RPS win');
-        el.innerHTML = `
+        rEl.innerHTML = `
           <div style="display:flex;justify-content:center;gap:20px;font-size:40px;margin-bottom:12px;">
             <i class="fas ${icons[playerChoice]}"></i>
             <i class="fas fa-vs" style="font-size:14px;align-self:center;">VS</i>
@@ -64,7 +62,7 @@ export function renderRPS() {
       } else if (result === 'loss') {
         losses++;
         await deductLoss(200, 'RPS loss');
-        el.innerHTML = `
+        rEl.innerHTML = `
           <div style="display:flex;justify-content:center;gap:20px;font-size:40px;margin-bottom:12px;">
             <i class="fas ${icons[playerChoice]}"></i>
             <i class="fas fa-vs" style="font-size:14px;align-self:center;">VS</i>
@@ -73,7 +71,7 @@ export function renderRPS() {
           <p style="color:#ef4444;font-size:22px;">Computer Wins · -${money(200)}</p>
         `;
       } else {
-        el.innerHTML = `
+        rEl.innerHTML = `
           <div style="display:flex;justify-content:center;gap:20px;font-size:40px;margin-bottom:12px;">
             <i class="fas ${icons[playerChoice]}"></i>
             <i class="fas fa-vs" style="font-size:14px;align-self:center;">VS</i>
@@ -97,7 +95,7 @@ function determineWinner(p, c) {
 }
 
 async function creditWin(amount, desc) {
-  const res = await fetch('/api/games/balance-op', {
+  const res = await fetch('/api/games?action=balance-op', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId: getDeviceId(), amount, operation: 'add', description: desc, gameName: 'rps', isGameWin: true })
   });
@@ -107,12 +105,11 @@ async function creditWin(amount, desc) {
 }
 
 async function deductLoss(amount, desc) {
-  await fetch('/api/games/balance-op', {
+  await fetch('/api/games?action=balance-op', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId: getDeviceId(), amount, operation: 'subtract', description: desc, gameName: 'rps', isGameLoss: true })
   });
-  // Reload user to reflect new balance
-  const r = await fetch(`/api/users/me?deviceId=${encodeURIComponent(getDeviceId())}`);
+  const r = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
   const u = await r.json();
   if (u && !u.error) setCurrentUser(u);
   showToast(`-${money(amount)}`);
