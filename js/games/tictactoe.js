@@ -1,9 +1,8 @@
 import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
-import { showToast, showAlert } from '../modal.js';
+import { showToast } from '../modal.js';
 import { money } from '../format.js';
 
-const BOX_MIN = 120, BOX_MAX = 180;
 const COMPUTER_LOSS_PCT = 0.15;
 
 let _state = {};
@@ -12,7 +11,6 @@ export async function renderTicTacToe() {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  // Fresh board
   _state = {
     board: Array(9).fill(''),
     gameOver: false,
@@ -24,13 +22,16 @@ export async function renderTicTacToe() {
     winLine: null
   };
 
-  // Fetch box values from server (uses same 9-portion endpoint)
-  const oddsRes = await fetch('/api/games/odds', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' }) // reuse for 9 random values
-  });
-  const oddsData = await oddsRes.json();
-  _state.boxValues = oddsData.portions || Array.from({ length: 9 }, () => Math.floor(Math.random() * 61) + 120);
+  try {
+    const oddsRes = await fetch('/api/games?action=odds', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' })
+    });
+    const oddsData = await oddsRes.json();
+    _state.boxValues = oddsData.portions || Array.from({ length: 9 }, () => Math.floor(Math.random() * 61) + 120);
+  } catch {
+    _state.boxValues = Array.from({ length: 9 }, () => Math.floor(Math.random() * 61) + 120);
+  }
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -42,7 +43,7 @@ export async function renderTicTacToe() {
       <p style="font-size:14px;color:var(--text-secondary);">
         Round ${_state.round} · You are <strong>${_state.userSymbol}</strong>
       </p>
-      <p style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Win the diagonal to claim the box amounts!</p>
+      <p style="font-size:12px;color:var(--text-secondary);margin-top:4px;">Win a row to claim the box amounts!</p>
     </div>
 
     <div style="position:relative;max-width:340px;margin:0 auto;">
@@ -77,28 +78,29 @@ async function handleUserMove(index) {
 
   const w = checkWinner(_state.board);
   if (w) return endGame(w);
-
   if (_state.board.every(c => c)) return endGame('draw');
 
-  // Computer move
   await new Promise(r => setTimeout(r, 300));
-  const res = await fetch('/api/games/odds', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      deviceId: getDeviceId(), game: 'tictactoe',
-      board: _state.board, computer: _state.computerSymbol,
-      difficulty: _state.difficulty
-    })
-  });
-  const data = await res.json();
-  const idx = data.move;
-  if (idx !== undefined && idx !== null) {
-    _state.board[idx] = _state.computerSymbol;
-    updateBoard();
-    const w2 = checkWinner(_state.board);
-    if (w2) return endGame(w2);
-    if (_state.board.every(c => c)) return endGame('draw');
-  }
+
+  try {
+    const res = await fetch('/api/games?action=odds', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: getDeviceId(), game: 'tictactoe',
+        board: _state.board, computer: _state.computerSymbol,
+        difficulty: _state.difficulty
+      })
+    });
+    const data = await res.json();
+    const idx = data.move;
+    if (idx !== undefined && idx !== null) {
+      _state.board[idx] = _state.computerSymbol;
+      updateBoard();
+      const w2 = checkWinner(_state.board);
+      if (w2) return endGame(w2);
+      if (_state.board.every(c => c)) return endGame('draw');
+    }
+  } catch {}
 }
 
 function updateBoard() {
@@ -125,13 +127,11 @@ async function endGame(result) {
   const status = document.getElementById('tttStatus');
 
   if (result === _state.userSymbol) {
-    // Draw the pencil line via Babylon.js
     if (_state.winLine) await drawPencilLine(_state.winLine);
-
     const reward = _state.winLine.reduce((s, i) => s + _state.boxValues[i], 0);
     status.textContent = `You won! +${money(reward)}`;
     status.style.color = '#10b981';
-    await fetch('/api/games/balance-op', {
+    await fetch('/api/games?action=balance-op', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deviceId: getDeviceId(), amount: reward, operation: 'add',
@@ -142,11 +142,10 @@ async function endGame(result) {
     reloadUser();
   } else if (result === _state.computerSymbol) {
     if (_state.winLine) await drawPencilLine(_state.winLine);
-    // Loss = 15% of current balance
-    const u = await fetch(`/api/users/me?deviceId=${encodeURIComponent(getDeviceId())}`).then(r => r.json());
+    const u = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`).then(r => r.json());
     const penalty = Math.floor((u.balance || 0) * COMPUTER_LOSS_PCT);
     if (penalty > 0) {
-      await fetch('/api/games/balance-op', {
+      await fetch('/api/games?action=balance-op', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId: getDeviceId(), amount: penalty, operation: 'subtract',
@@ -163,7 +162,6 @@ async function endGame(result) {
     status.style.color = 'var(--text-secondary)';
   }
 
-  // Rotate symbols for next round
   setTimeout(() => {
     _state.round++;
     _state.userSymbol = _state.userSymbol === 'X' ? 'O' : 'X';
@@ -172,12 +170,11 @@ async function endGame(result) {
 }
 
 async function reloadUser() {
-  const r = await fetch(`/api/users/me?deviceId=${encodeURIComponent(getDeviceId())}`);
+  const r = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
   const u = await r.json();
   if (u && !u.error) setCurrentUser(u);
 }
 
-// ---- Babylon.js pencil line drawing ----
 async function drawPencilLine(indices) {
   const canvas = document.getElementById('tttCanvas');
   const board = document.getElementById('tttBoard');
@@ -187,7 +184,6 @@ async function drawPencilLine(indices) {
   canvas.width = rect.width;
   canvas.height = rect.height;
 
-  // Load Babylon from CDN
   await loadBabylon();
 
   const engine = new BABYLON.Engine(canvas, true);
@@ -196,14 +192,12 @@ async function drawPencilLine(indices) {
 
   const camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(0, 0, -10), scene);
   camera.setTarget(BABYLON.Vector3.Zero());
-  const cameraMode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
-  camera.mode = cameraMode;
+  camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
   camera.orthoLeft = -rect.width / 2;
   camera.orthoRight = rect.width / 2;
   camera.orthoTop = rect.height / 2;
   camera.orthoBottom = -rect.height / 2;
 
-  // Get cell centers
   const cells = indices.map(i => {
     const cellEl = document.querySelector(`.tttCell[data-index="${i}"]`);
     const r = cellEl.getBoundingClientRect();
@@ -214,10 +208,8 @@ async function drawPencilLine(indices) {
     );
   });
 
-  // Build a curvy tube between first and last centers
   const start = cells[0];
   const end = cells[2];
-
   const points = [];
   for (let i = 0; i <= 40; i++) {
     const t = i / 40;
@@ -236,20 +228,8 @@ async function drawPencilLine(indices) {
   mat.emissiveColor = new BABYLON.Color3(0.3, 0.05, 0.05);
   tube.material = mat;
 
-  // Animate: scale tube path in
-  let elapsed = 0;
-  const animObs = scene.onBeforeRenderObservable.add(() => {
-    elapsed += engine.getDeltaTime();
-    const prog = Math.min(1, elapsed / 600);
-    tube.scaling.x = prog;
-    if (prog >= 1) {
-      scene.onBeforeRenderObservable.remove(animObs);
-    }
-  });
-
   engine.runRenderLoop(() => scene.render());
 
-  // Cleanup after 4 sec
   setTimeout(() => {
     engine.stopRenderLoop();
     scene.dispose();
