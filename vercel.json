@@ -2,11 +2,6 @@
   "rewrites": [
     { "source": "/ref/:code", "destination": "/index.html" },
     { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/api/reels/single", "destination": "/api/reels/single.js" },
-    { "source": "/api/reels/like", "destination": "/api/reels/like.js" },
-    { "source": "/api/reels/view", "destination": "/api/reels/view.js" },
-    { "source": "/api/admin/payments/single", "destination": "/api/admin/payments/single.js" },
-    { "source": "/api/admin/users/single", "destination": "/api/admin/users/single.js" },
     { "source": "/((?!api/|images/|css/|js/|favicon|admin\\.html).*)", "destination": "/index.html" }
   ],
   "headers": [
@@ -15,7 +10,9 @@
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "geolocation=(self), camera=(), microphone=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     }
   ]
