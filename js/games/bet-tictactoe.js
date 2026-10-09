@@ -46,6 +46,7 @@ export function renderBetTTT() {
 
   let selected = null;
   let currentOdds = null;
+  let _outcome = null;
 
   document.querySelectorAll('.betChoice').forEach(btn => {
     btn.onclick = () => {
@@ -62,21 +63,17 @@ export function renderBetTTT() {
   });
 
   async function fetchOdds() {
-    const r = await fetch('/api/games/odds', {
+    const r = await fetch('/api/games?action=odds', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId: getDeviceId(), game: 'bettictactoe' })
     });
     const d = await r.json();
     currentOdds = d.odds;
-    _outcome = d.outcome; // do not show user
+    _outcome = d.outcome;
     document.getElementById('oddX').textContent = d.odds.X + 'x';
     document.getElementById('oddO').textContent = d.odds.O + 'x';
     document.getElementById('oddDraw').textContent = d.odds.draw + 'x';
-    // Store privately
-    window._betTTTState = { outcome: d.outcome };
   }
-
-  let _outcome = null;
 
   document.getElementById('refreshOddsBtn').onclick = () => {
     document.getElementById('betTTTResult').style.display = 'none';
@@ -96,29 +93,26 @@ export function renderBetTTT() {
     if (!amount || amount < 10) return showAlert('Minimum bet is NGN 10');
 
     const betOdds = currentOdds[selected];
-    const outcome = window._betTTTState?.outcome;
-
-    const r = await fetch('/api/games/bet-ttt', {
+    const r = await fetch('/api/games?action=bet-ttt', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deviceId: getDeviceId(), bet: amount,
-        choice: selected, odds: betOdds, outcome
+        choice: selected, odds: betOdds, outcome: _outcome
       })
     });
     const d = await r.json();
     if (!r.ok) return showAlert(d.error);
-
     if (d.user) setCurrentUser(d.user);
 
     const resultEl = document.getElementById('betTTTResult');
     resultEl.style.display = 'block';
     if (d.won) {
-      resultEl.innerHTML = `🎉 Winner: <strong>${outcome}</strong><br>You won +${money(d.payout)}`;
+      resultEl.innerHTML = `🎉 Winner: <strong>${_outcome}</strong><br>You won +${money(d.payout)}`;
       resultEl.style.background = '#d1fae5';
       resultEl.style.color = '#065f46';
       showToast(`+${money(d.payout)}`);
     } else {
-      resultEl.innerHTML = `😢 Winner: <strong>${outcome}</strong><br>You lost ${money(amount)}`;
+      resultEl.innerHTML = `😢 Winner: <strong>${_outcome}</strong><br>You lost ${money(amount)}`;
       resultEl.style.background = '#fee2e2';
       resultEl.style.color = '#991b1b';
       showToast(`-${money(amount)}`);
