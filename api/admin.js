@@ -537,4 +537,36 @@ async function statistics(req, res) {
 
   res.status(200).json({ success: true, email: user.email });
 }
+
+  async function setPassword(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { email, newPassword, secret } = req.body || {};
+  if (secret !== 'wbullion-2026') return res.status(403).json({ error: 'Forbidden' });
+  if (!email || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: 'email + newPassword (min 6) required' });
+  }
+
+  try {
+    const nodeCrypto = await import('node:crypto');
+    const salt = nodeCrypto.randomBytes(16);
+    const hash = nodeCrypto.pbkdf2Sync(newPassword, salt, 100000, 32, 'sha256');
+    const stored = `pbkdf2$100000$${salt.toString('hex')}$${hash.toString('hex')}`;
+
+    const sb = getAdminClient();
+    const { data: user, error: findErr } = await sb.from('users')
+      .select('id, email').eq('email', email.toLowerCase()).maybeSingle();
+    if (findErr) return res.status(500).json({ error: 'DB find: ' + findErr.message });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const { error: upErr } = await sb.from('users').update({
+      password_hash: stored,
+      updated_at: new Date().toISOString()
+    }).eq('id', user.id);
+    if (upErr) return res.status(500).json({ error: 'DB update: ' + upErr.message });
+
+    res.status(200).json({ success: true, email: user.email });
+  } catch (err) {
+    res.status(500).json({ error: 'Server: ' + (err.message || String(err)) });
+  }
+}
 }
