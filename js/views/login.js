@@ -39,7 +39,6 @@ export function renderLogin() {
     });
   });
 
-  // Lowercase enforcement
   const idInput = document.getElementById('loginIdentifier');
   idInput.addEventListener('input', () => {
     const p = idInput.selectionStart;
@@ -61,7 +60,7 @@ async function handleLogin(e) {
   btn.innerHTML = 'Logging in...';
 
   try {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch('/api/auth?action=login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password, deviceId: getDeviceId() })
