@@ -17,7 +17,6 @@ export function renderSignup() {
   const urlParams = new URLSearchParams(window.location.search);
   const refCode = (urlParams.get('ref') || '').toUpperCase();
 
-  // Load saved draft
   let draft = {};
   try { draft = JSON.parse(sessionStorage.getItem('wb_signup_draft') || '{}'); } catch {}
 
@@ -35,32 +34,32 @@ export function renderSignup() {
     <form id="signupForm" style="display:flex;flex-direction:column;gap:16px;">
       <div>
         <label class="wb-label">Full Name</label>
-        <input id="suName" type="text" placeholder="Enter your full name" class="wb-input" value="${draft.name || ''}" required>
+        <input id="suName" type="text" placeholder="Enter your full name" class="wb-input" value="${draft.name || ''}">
       </div>
       <div>
         <label class="wb-label">Set Username</label>
         <div class="at-wrap">
           <span class="at-prefix">@</span>
-          <input id="suUsername" type="text" placeholder="username" class="wb-input at-input" maxlength="30" value="${draft.username || ''}" required>
+          <input id="suUsername" type="text" placeholder="username" class="wb-input at-input" maxlength="30" value="${draft.username || ''}">
         </div>
         <p id="usernameStatus" style="font-size:12px;margin-top:4px;color:var(--text-secondary);">${_usernameAvailable ? '<span style="color:#10b981;">Available</span>' : ''}</p>
       </div>
       <div>
         <label class="wb-label">Email</label>
-        <input id="suEmail" type="email" placeholder="Enter your email" class="wb-input" value="${draft.email || ''}" required>
+        <input id="suEmail" type="email" placeholder="Enter your email" class="wb-input" value="${draft.email || ''}">
         <p id="emailStatus" style="font-size:12px;margin-top:4px;color:var(--text-secondary);">${_emailAvailable ? '<span style="color:#10b981;">Available</span>' : ''}</p>
       </div>
       <div>
         <label class="wb-label">Set Up Password</label>
         <div class="pw-wrap">
-          <input id="suPassword" type="password" placeholder="Create a password" class="wb-input" value="${draft.password || ''}" required>
+          <input id="suPassword" type="password" placeholder="Create a password" class="wb-input" value="${draft.password || ''}">
           <button type="button" class="pw-eye" data-target="suPassword"><i class="fas fa-eye"></i></button>
         </div>
       </div>
       <div>
         <label class="wb-label">Confirm Password</label>
         <div class="pw-wrap">
-          <input id="suConfirm" type="password" placeholder="Confirm your password" class="wb-input" value="${draft.confirm || ''}" required>
+          <input id="suConfirm" type="password" placeholder="Confirm your password" class="wb-input" value="${draft.confirm || ''}">
           <button type="button" class="pw-eye" data-target="suConfirm"><i class="fas fa-eye"></i></button>
         </div>
       </div>
@@ -72,12 +71,11 @@ export function renderSignup() {
         <input id="suTerms" type="checkbox" ${termsRead ? 'checked' : ''} disabled style="margin-top:3px;transform:scale(1.2);">
         <label for="suTerms">I have read the <a id="termsLink" style="color:var(--green);font-weight:bold;text-decoration:underline;cursor:pointer;">terms and policies</a></label>
       </div>
-      <button type="submit" id="suSubmit" class="wb-btn-primary" disabled style="opacity:0.5;pointer-events:none;">Sign Up</button>
+      <button type="submit" id="suSubmit" class="wb-btn-primary">Sign Up</button>
     </form>
     <p style="text-align:center;margin-top:20px;font-size:14px;">Already have an account? <a data-route="/login" style="color:var(--green);font-weight:bold;cursor:pointer;text-decoration:underline;">Log In</a></p>
   `;
 
-  // Eye toggles
   document.querySelectorAll('.pw-eye').forEach(btn => {
     btn.addEventListener('click', () => {
       const inp = document.getElementById(btn.dataset.target);
@@ -95,12 +93,8 @@ export function renderSignup() {
     userIn.value = userIn.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
     userIn.setSelectionRange(p, p);
     clearTimeout(userTimer);
-    if (!userIn.value) {
-      userStatus.textContent = '';
-      _usernameAvailable = false;
-      refreshSubmit();
-      return;
-    }
+    _usernameAvailable = false;
+    if (!userIn.value) { userStatus.textContent = ''; return; }
     userStatus.textContent = 'Checking...';
     userStatus.style.color = 'var(--text-secondary)';
     userTimer = setTimeout(async () => {
@@ -116,11 +110,7 @@ export function renderSignup() {
           userStatus.style.color = '#ef4444';
           _usernameAvailable = false;
         }
-      } catch {
-        userStatus.textContent = '';
-        _usernameAvailable = false;
-      }
-      refreshSubmit();
+      } catch { userStatus.textContent = ''; }
     }, 350);
   });
 
@@ -132,12 +122,8 @@ export function renderSignup() {
     emailIn.value = emailIn.value.toLowerCase();
     emailIn.setSelectionRange(p, p);
     clearTimeout(emailTimer);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailIn.value)) {
-      emailStatus.textContent = '';
-      _emailAvailable = false;
-      refreshSubmit();
-      return;
-    }
+    _emailAvailable = false;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailIn.value)) { emailStatus.textContent = ''; return; }
     emailStatus.textContent = 'Checking...';
     emailStatus.style.color = 'var(--text-secondary)';
     emailTimer = setTimeout(async () => {
@@ -153,11 +139,7 @@ export function renderSignup() {
           emailStatus.style.color = '#ef4444';
           _emailAvailable = false;
         }
-      } catch {
-        emailStatus.textContent = '';
-        _emailAvailable = false;
-      }
-      refreshSubmit();
+      } catch { emailStatus.textContent = ''; }
     }, 400);
   });
 
@@ -169,28 +151,6 @@ export function renderSignup() {
   });
 
   document.getElementById('termsLink').addEventListener('click', () => {
-    saveDraft();
-    sessionStorage.setItem('wb_terms_return', '/signup');
-    navigate('/terms');
-  });
-
-  ['suName', 'suPassword', 'suConfirm'].forEach(id => {
-    document.getElementById(id).addEventListener('input', refreshSubmit);
-  });
-
-  function refreshSubmit() {
-    const name = document.getElementById('suName').value.trim();
-    const pwd = document.getElementById('suPassword').value;
-    const cfm = document.getElementById('suConfirm').value;
-    const terms = document.getElementById('suTerms').checked;
-    const ok = name && _usernameAvailable && _emailAvailable && pwd.length >= 6 && pwd === cfm && terms;
-    const btn = document.getElementById('suSubmit');
-    btn.disabled = !ok;
-    btn.style.opacity = ok ? '1' : '0.5';
-    btn.style.pointerEvents = ok ? 'auto' : 'none';
-  }
-
-  function saveDraft() {
     sessionStorage.setItem('wb_signup_draft', JSON.stringify({
       name: document.getElementById('suName').value,
       username: document.getElementById('suUsername').value,
@@ -201,25 +161,35 @@ export function renderSignup() {
       usernameAvailable: _usernameAvailable,
       emailAvailable: _emailAvailable
     }));
-  }
+    sessionStorage.setItem('wb_terms_return', '/signup');
+    navigate('/terms');
+  });
 
-  // Clear terms flag now that we've consumed it
   if (termsRead) sessionStorage.removeItem('wb_terms_read');
 
-  refreshSubmit();
-
+  // Signup handler
   document.getElementById('signupForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btn = document.getElementById('suSubmit');
-    const payload = {
-      fullName: document.getElementById('suName').value.trim(),
-      username: '@' + document.getElementById('suUsername').value.trim().toLowerCase(),
-      email: document.getElementById('suEmail').value.trim().toLowerCase(),
-      password: document.getElementById('suPassword').value,
-      referralCode: document.getElementById('suReferral').value.trim(),
-      deviceId: getDeviceId()
-    };
 
+    const name = document.getElementById('suName').value.trim();
+    const username = document.getElementById('suUsername').value.trim();
+    const email = document.getElementById('suEmail').value.trim();
+    const password = document.getElementById('suPassword').value;
+    const confirm = document.getElementById('suConfirm').value;
+    const referral = document.getElementById('suReferral').value.trim();
+    const terms = document.getElementById('suTerms').checked;
+
+    // Validate with clear messages
+    if (!name) return showAlert('Please enter your full name');
+    if (!username) return showAlert('Please enter a username');
+    if (!_usernameAvailable) return showAlert('Username not available — please wait for the check or pick another');
+    if (!email) return showAlert('Please enter your email');
+    if (!_emailAvailable) return showAlert('Email not available — please wait for the check or use another');
+    if (password.length < 6) return showAlert('Password must be at least 6 characters');
+    if (password !== confirm) return showAlert('Passwords do not match');
+    if (!terms) return showAlert('Please read and agree to the terms and policies');
+
+    const btn = document.getElementById('suSubmit');
     btn.disabled = true;
     btn.textContent = 'Creating account...';
 
@@ -227,7 +197,14 @@ export function renderSignup() {
       const res = await fetch('/api/auth?action=register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          fullName: name,
+          username: '@' + username.toLowerCase(),
+          email: email.toLowerCase(),
+          password,
+          referralCode: referral,
+          deviceId: getDeviceId()
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Signup failed');
