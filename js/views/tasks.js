@@ -9,8 +9,8 @@ export async function renderTasks() {
 
   const deviceId = getDeviceId();
   const [allRes, mineRes] = await Promise.all([
-    fetch(`/api/tasks/list?deviceId=${encodeURIComponent(deviceId)}`),
-    fetch(`/api/tasks/list?deviceId=${encodeURIComponent(deviceId)}&mode=mine`)
+    fetch(`/api/tasks?action=list&deviceId=${encodeURIComponent(deviceId)}`),
+    fetch(`/api/tasks?action=list&deviceId=${encodeURIComponent(deviceId)}&mode=mine`)
   ]);
   const all = (await allRes.json()).tasks || [];
   const mine = (await mineRes.json()).tasks || [];
@@ -55,7 +55,7 @@ export async function renderTasks() {
 
     document.querySelectorAll('.completeTask').forEach(btn => btn.onclick = async () => {
       if (btn.dataset.url) window.open(btn.dataset.url, '_blank');
-      const r = await fetch('/api/tasks/complete', {
+      const r = await fetch('/api/tasks?action=complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId, taskId: btn.dataset.id })
@@ -100,8 +100,8 @@ function showCreateTask() {
       <input id="tReward" class="wb-input" type="number" placeholder="Reward per completion (default 150)" value="150" style="margin-bottom:10px;">
       <input id="tCPC" class="wb-input" type="number" placeholder="Pay-per-click cost (deducts from you per click)" value="0" style="margin-bottom:12px;">
       <div class="modal-actions">
-        <button class="modal-btn ghost" id="cancelTask">Cancel</button>
-        <button class="modal-btn primary" id="saveTask">Create (Earn NGN 500)</button>
+        <button type="button" class="modal-btn ghost" id="cancelTask">Cancel</button>
+        <button type="button" class="modal-btn primary" id="saveTask">Create (Earn NGN 500)</button>
       </div>
     </div>
   `;
@@ -109,7 +109,7 @@ function showCreateTask() {
 
   modal.querySelector('#cancelTask').onclick = () => modal.remove();
   modal.querySelector('#saveTask').onclick = async () => {
-    const r = await fetch('/api/tasks/create', {
+    const r = await fetch('/api/tasks?action=create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
