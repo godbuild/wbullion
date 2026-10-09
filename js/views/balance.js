@@ -8,7 +8,7 @@ export async function renderBalance(type = 'all') {
   const deviceId = getDeviceId();
   let txs = [];
   try {
-    const res = await fetch(`/api/users/transactions?deviceId=${encodeURIComponent(deviceId)}&type=${type === 'all' ? '' : type}`);
+    const res = await fetch(`/api/users?action=transactions&deviceId=${encodeURIComponent(deviceId)}&type=${type === 'all' ? '' : type}`);
     const data = await res.json();
     txs = data.transactions || [];
   } catch {}
