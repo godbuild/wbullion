@@ -7,7 +7,7 @@ export async function renderReferral() {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  const res = await fetch(`/api/users/referral-info?deviceId=${encodeURIComponent(getDeviceId())}`);
+  const res = await fetch(`/api/users?action=referral-info&deviceId=${encodeURIComponent(getDeviceId())}`);
   const data = await res.json();
 
   el.innerHTML = `
