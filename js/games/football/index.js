@@ -10,7 +10,7 @@ import { createTaker } from './taker.js';
 import { createReplayController } from './replay.js';
 import { renderTakerSelect, renderFootballUI, renderObjectiveBanner } from './ui.js';
 
-let S = null; // game state
+let S = null;
 
 export async function renderFootball() {
   const el = document.getElementById('viewContainer');
@@ -24,7 +24,6 @@ export async function renderFootball() {
     </div>
   `;
 
-  // Load config
   let config;
   try {
     config = await loadFootballConfig();
@@ -38,7 +37,6 @@ export async function renderFootball() {
     return;
   }
 
-  // Taker selection
   renderTakerSelect(config.takers, (taker) => startGame(config, taker));
 }
 
@@ -58,9 +56,7 @@ async function startGame(config, takerData) {
   const canvas = document.getElementById('fbCanvas');
   const { engine, scene, cameras } = createScene(canvas, { isDark });
 
-  // Build scene
   const goal = createGoalpost(scene, { logoTextureUrl: '/images/logo.png' });
-  goal.position = new B().Vector3(0, 0, 0); // at z=0
   const ball = createBall(scene, '/images/logo.png');
   const keeper = createKeeper(scene);
   const taker = createTaker(scene, {
@@ -73,8 +69,7 @@ async function startGame(config, takerData) {
   const ballCtrl = createBallController(scene, ball);
   const replay = createReplayController(scene, cameras, ball, taker, keeper, goal);
 
-  // Server-provided 9 portion amounts — fetched here
-  const oddsRes = await fetch('/api/games/odds', {
+  const oddsRes = await fetch('/api/games?action=odds', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' })
@@ -92,7 +87,6 @@ async function startGame(config, takerData) {
     swipeStart: null,
     swipeEnd: null,
     swipePath: [],
-    swipeLineMeshes: [],
     isAnimating: false,
     isReplaying: false,
     activeShot: null,
@@ -102,18 +96,14 @@ async function startGame(config, takerData) {
     }
   };
 
-  // Render HUD
   document.getElementById('fbOverlay').innerHTML =
     renderFootballUI({ balance: config.wallet.balance }, {}) +
     renderObjectiveBanner(config.objective, config.objectiveProgress);
 
   attachHudHandlers();
   attachSwipeHandlers(canvas);
-
-  // Show goalpost portions flashing
   showPortionsFlash();
 
-  // Render loop
   engine.runRenderLoop(() => {
     const dt = engine.getDeltaTime() / 1000;
     ballCtrl.update(dt);
@@ -152,7 +142,7 @@ function attachHudHandlers() {
         S.mode = S.mode === 'TPT' ? 'FPT' : 'TPT';
         S.taker.root.setEnabled(S.mode === 'TPT');
         document.getElementById('modeLabel').textContent = S.mode === 'TPT' ? 'FPT Mode' : 'TPT Mode';
-        scene.activeCamera = S.mode === 'TPT' ? S.cameras.tpt : S.cameras.fpt;
+        S.scene.activeCamera = S.mode === 'TPT' ? S.cameras.tpt : S.cameras.fpt;
         showToast(`${S.mode} Mode`);
       } else if (action === 'exit') {
         S?.engine.stopRenderLoop();
@@ -162,7 +152,6 @@ function attachHudHandlers() {
     };
   });
 
-  // Replay controls
   document.getElementById('replayPlayPause')?.addEventListener('click', (e) => {
     const icon = e.currentTarget.querySelector('i');
     if (icon.classList.contains('fa-pause')) {
@@ -192,7 +181,7 @@ function attachHudHandlers() {
   });
 
   document.getElementById('claimObjective')?.addEventListener('click', async () => {
-    const r = await fetch('/api/games/objective', {
+    const r = await fetch('/api/bonus?action=objective', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -215,13 +204,9 @@ function getActiveCam() {
   return 'tpt';
 }
 
-// --- Portion flash animation ---
 function showPortionsFlash() {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:15;display:flex;align-items:center;justify-content:center;';
-  // Draw 9 boxes overlaying the goal on-screen
-  // We approximate their screen position based on the goal dimensions and current camera
-  // Simpler: draw them relative to a fixed screen region
   overlay.innerHTML = `
     <div id="portionGrid" style="display:grid;grid-template-columns:repeat(3,60px);grid-template-rows:repeat(3,45px);gap:4px;position:absolute;top:50%;left:50%;transform:translate(-50%,-70%);">
       ${Array.from({ length: 9 }, (_, i) => {
@@ -232,7 +217,6 @@ function showPortionsFlash() {
   `;
   document.getElementById('fbOverlay').appendChild(overlay);
 
-  // Flash each cell randomly for 3 seconds
   const cells = overlay.querySelectorAll('.portionCell');
   const startT = performance.now();
   const flashInterval = setInterval(() => {
@@ -250,10 +234,7 @@ function showPortionsFlash() {
   }, 250);
 }
 
-// --- Swipe handling ---
 function attachSwipeHandlers(canvas) {
-  const hint = () => document.getElementById('swipeHint');
-
   canvas.addEventListener('pointerdown', (e) => {
     if (S.isAnimating || S.isReplaying) return;
     S.swipeStart = { x: e.clientX, y: e.clientY };
@@ -273,22 +254,16 @@ function attachSwipeHandlers(canvas) {
     const dx = S.swipeEnd.x - S.swipeStart.x;
     const dy = S.swipeEnd.y - S.swipeStart.y;
 
-    // Determine shot
     if (Math.abs(dx) < 20 && Math.abs(dy) < 20) {
-      // Too small — treat as cancel
       S.swipeStart = null;
       clearSwipeLine();
       return;
     }
 
-    // Pick portion based on end position relative to goal grid
     const idx = pickPortionFromSwipe(S.swipeEnd.x, S.swipeEnd.y);
     S.currentShot.portion = idx;
     S.currentShot.amount = S.portions[idx];
-
-    // Curve detection: horizontal path changes
     const curve = detectCurve(S.swipePath);
-
     executeShot(dx, dy, curve);
     clearSwipeLine();
     S.swipeStart = null;
@@ -354,54 +329,43 @@ function clearSwipeLine() {
   document.getElementById('swipeLineSvg')?.remove();
 }
 
-// --- Shot execution ---
 async function executeShot(dx, dy, curve) {
   S.isAnimating = true;
   S.taker.root.setEnabled(S.mode === 'TPT');
   if (S.mode === 'FPT') S.taker.root.setEnabled(false);
 
-  // Compute shot velocity in 3D
-  // Screen: x right, y down. World: ball shoots +z (into goal) and sideways based on dx
   const power = Math.min(1, Math.hypot(dx, dy) / 250);
-  const velZ = 10 + power * 10; // 10-20 m/s
+  const velZ = 10 + power * 10;
   const velX = (dx / 250) * 6;
   const velY = -(dy / 250) * 6;
 
   const curveVec = curve === 0 ? new BABYLON.Vector3(0, 0, 0)
                 : new BABYLON.Vector3(curve * 3.5, 0, 0);
 
-  // Choose keeper dive
   const keeperChoice = chooseKeeperDive(S.currentShot.portion, curve);
 
-  // Capture frame data BEFORE shot (for replay)
   S.replay.capture();
 
-  // Runup (TPT only)
   const onKick = () => {
     S.ballCtrl.applyShot(new BABYLON.Vector3(velX, velY + 2, velZ), { curve: curveVec });
-    keeper.dive(keeperChoice.direction, keeperChoice.style);
+    S.keeper.dive(keeperChoice.direction, keeperChoice.style);
   };
 
   if (S.mode === 'TPT') {
     S.taker.runup(onKick);
-    // Show lines during runup
   } else {
-    // FPT: instantaneous
     onKick();
   }
 
-  // Wait for outcome via update loop
   S.activeShot = { dx, dy, curve, keeperChoice, recorded: false };
 }
 
 function chooseKeeperDive(portion, curve) {
-  // Portion 0-8: [row*3+col]. Left column is 0,3,6. Right is 2,5,8.
   const col = portion % 3;
   const row = Math.floor(portion / 3);
   let direction;
   const r = Math.random();
 
-  // Keeper guesses. 60% chance guesses correctly, 40% wrong.
   if (r < 0.6) {
     direction = col === 0 ? 'left' : col === 2 ? 'right' : 'center';
   } else {
@@ -416,25 +380,20 @@ function chooseKeeperDive(portion, curve) {
   return { direction, style };
 }
 
-// --- Outcome check (called every frame) ---
 function checkShotOutcome() {
   if (!S.activeShot || !S.ballCtrl.isSpinning()) return;
 
   const b = S.ball.position;
   const v = S.ballCtrl.getVelocity();
 
-  // Did ball cross goal line? Goal at z=0, ball travels +z.
   if (b.z > 0.3 && !S.activeShot.recorded) {
     S.activeShot.recorded = true;
     S.ballCtrl.stop();
 
-    // Determine outcome
     const W = 7.32 / 2, H = 2.44;
     const inX = b.x > -W && b.x < W;
     const inY = b.y > 0 && b.y < H;
-    // Keeper intersection check
     const keeperPos = S.keeper.root.position;
-    const keeperReach = S.keeper.parts.gloveL?.getAbsolutePosition() || keeperPos;
     const keeperDist = Math.hypot(b.x - keeperPos.x, b.y - (1.5 + keeperPos.y));
 
     let outcome = 'goal';
@@ -444,7 +403,6 @@ function checkShotOutcome() {
     finalizeShot(outcome);
   }
 
-  // Timeout — if ball is idle
   if (Math.abs(v.x) < 0.1 && Math.abs(v.y) < 0.1 && Math.abs(v.z) < 0.1 && S.activeShot && !S.activeShot.recorded) {
     S.activeShot.recorded = true;
     S.ballCtrl.stop();
@@ -455,27 +413,17 @@ function checkShotOutcome() {
 async function finalizeShot(outcome) {
   S.currentShot.outcome = outcome;
 
-  // Flash overlay
   if (outcome === 'goal') {
     const flash = document.getElementById('goalFlash');
     flash.style.opacity = '1';
-    flash.style.transform = 'translate(-50%,-50%) scale(1.4)';
-    setTimeout(() => {
-      flash.style.transition = 'opacity 0.5s, transform 0.5s';
-      flash.style.opacity = '0';
-      flash.style.transform = 'translate(-50%,-50%) scale(1)';
-    }, 900);
+    setTimeout(() => { flash.style.transition = 'opacity 0.5s'; flash.style.opacity = '0'; }, 900);
   } else {
     const flash = document.getElementById('missFlash');
     flash.textContent = outcome === 'save' ? 'SAVED' : 'MISSED';
     flash.style.opacity = '1';
-    setTimeout(() => {
-      flash.style.transition = 'opacity 0.5s';
-      flash.style.opacity = '0';
-    }, 1200);
+    setTimeout(() => { flash.style.transition = 'opacity 0.5s'; flash.style.opacity = '0'; }, 1200);
   }
 
-  // Submit to server
   try {
     const res = await submitShot({
       takerId: S.takerData.id,
@@ -486,22 +434,14 @@ async function finalizeShot(outcome) {
 
     if (outcome === 'goal') {
       const banner = document.getElementById('footballHud');
-      // Floating +NGN
       const float = document.createElement('div');
       float.textContent = `+${money(res.reward)}`;
       float.style.cssText = 'position:absolute;top:60px;right:20px;color:#10b981;font-weight:900;font-size:22px;text-shadow:0 2px 8px black;pointer-events:none;z-index:20;animation:floatUp 1.5s ease-out forwards;';
       banner.parentElement.appendChild(float);
       setTimeout(() => float.remove(), 1600);
-      // Update balance display
-      const hud = document.querySelector('#footballHud div div:nth-child(2)');
-      // Simpler: refresh from server
-      setTimeout(async () => {
-        const b = await refreshWallet();
-        document.querySelectorAll('#footballHud [data-balance]').forEach(el => el.textContent = money(b));
-        // Update the balance div
-        const balanceEl = document.querySelector('#footballHud > div:first-child > div:nth-child(2)');
-        if (balanceEl) balanceEl.innerHTML = `<i class="fas fa-wallet"></i> ${money(b)}`;
-      }, 100);
+      const b = await refreshWallet();
+      const balanceEl = document.querySelector('#footballHud > div:first-child > div:nth-child(2)');
+      if (balanceEl) balanceEl.innerHTML = `<i class="fas fa-wallet"></i> ${money(b)}`;
     } else if (outcome === 'save') {
       showToast(`-${money(res.penalty)}`);
     } else {
@@ -511,10 +451,8 @@ async function finalizeShot(outcome) {
     showToast(err.message);
   }
 
-  // Save shot for replay
   S.lastShot = { ...S.currentShot };
 
-  // Play replay
   setTimeout(() => {
     playReplay(S.lastShot);
   }, 800);
@@ -546,7 +484,6 @@ function hideReplayBar() {
 }
 
 function resetForNextShot() {
-  // Reset ball
   S.ballCtrl.reset();
   S.ball.position = new BABYLON.Vector3(0, 0.22, -5.5);
   S.taker.root.position = new BABYLON.Vector3(0, 0, -8);
@@ -557,23 +494,20 @@ function resetForNextShot() {
   S.activeShot = null;
   S.currentShot = { taker: null, portion: -1, outcome: null, amount: 0 };
 
-  // Refresh config for updated objective
   loadFootballConfig().then(c => {
     S.objectives.current = c.objective;
     S.objectives.progress = c.objectiveProgress;
-    // Re-render objective banner
     const existing = document.getElementById('objectiveBanner');
     if (existing) existing.outerHTML = renderObjectiveBanner(c.objective, c.objectiveProgress);
     attachObjectiveClaim();
   });
 
-  // Show new portion flash
   showPortionsFlash();
 }
 
 function attachObjectiveClaim() {
   document.getElementById('claimObjective')?.addEventListener('click', async () => {
-    const r = await fetch('/api/games/objective', {
+    const r = await fetch('/api/bonus?action=objective', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId: getDeviceId(), objectiveId: S.objectives.current.id, claim: true })
@@ -585,5 +519,3 @@ function attachObjectiveClaim() {
     resetForNextShot();
   });
 }
-
-function B() { return window.BABYLON; }
