@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
 import { showToast, showAlert } from '../modal.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 let _state = {
   running: false,
@@ -14,7 +15,8 @@ let _state = {
   scene: null,
   kite: null,
   crashHistory: [],
-  intervalId: null
+  intervalId: null,
+  resizeHandler: null
 };
 
 const HISTORY_KEY = 'wb_leveller_history';
@@ -73,62 +75,50 @@ export async function renderLeveller() {
 }
 
 async function initBabylon(isDark) {
-  await loadBabylon();
-  const canvas = document.getElementById('levellerCanvas');
-  if (!canvas) return;
+  try {
+    await loadBabylon();
+    const canvas = document.getElementById('levellerCanvas');
+    if (!canvas) return;
 
-  const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
-  const scene = new BABYLON.Scene(engine);
-  scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+    const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+    const scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
 
-  const camera = new BABYLON.ArcRotateCamera('cam', -Math.PI / 2, Math.PI / 2.4, 12, new BABYLON.Vector3(0, 2, 0), scene);
-  camera.inputs.clear();
+    const camera = new BABYLON.ArcRotateCamera('cam', -Math.PI / 2, Math.PI / 2.4, 12, new BABYLON.Vector3(0, 2, 0), scene);
+    camera.inputs.clear();
 
-  const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
-  hemi.intensity = isDark ? 0.5 : 0.9;
+    const hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+    hemi.intensity = isDark ? 0.5 : 0.9;
 
-  if (isDark) {
-    const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(-1, -1, 1), scene);
-    dir.intensity = 0.6;
-  }
-
-  const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 20, height: 20 }, scene);
-  const gm = new BABYLON.StandardMaterial('gmat', scene);
-  gm.diffuseColor = isDark ? new BABYLON.Color3(0.1, 0.15, 0.25) : new BABYLON.Color3(0.55, 0.75, 0.35);
-  ground.material = gm;
-
-  createClouds(scene, isDark);
-  _state.kite = createKite(scene);
-  _state.kite.position = new BABYLON.Vector3(0, 1.5, 0);
-  _state.tail = createTail(scene);
-
-  _state.engine = engine;
-  _state.scene = scene;
-
-  engine.runRenderLoop(() => {
-    updateKiteMotion();
-    scene.render();
-  });
-
-  window.addEventListener('resize', () => engine.resize());
-
-  function updateKiteMotion() {
-    if (!_state.kite) return;
-    const t = performance.now() / 1000;
-    const targetY = 1.5 + _state.currentOdds * 0.8;
-    const swayX = Math.sin(t * 1.3) * 0.6;
-    const swayZ = Math.cos(t * 0.9) * 0.4;
-    _state.kite.position.y += (targetY - _state.kite.position.y) * 0.08;
-    _state.kite.position.x = swayX;
-    _state.kite.position.z = swayZ;
-    _state.kite.rotation.z = Math.sin(t * 1.5) * 0.15;
-    _state.kite.rotation.y = t * 0.3;
-    if (_state.tail) {
-      _state.tail.position.x = _state.kite.position.x;
-      _state.tail.position.z = _state.kite.position.z;
-      _state.tail.position.y = _state.kite.position.y - 1.2;
-      _state.tail.rotation.z = _state.kite.rotation.z * 1.4;
+    if (isDark) {
+      const dir = new BABYLON.DirectionalLight('dir', new BABYLON.Vector3(-1, -1, 1), scene);
+      dir.intensity = 0.6;
     }
+
+    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 20, height: 20 }, scene);
+    const gm = new BABYLON.StandardMaterial('gmat', scene);
+    gm.diffuseColor = isDark ? new BABYLON.Color3(0.1, 0.15, 0.25) : new BABYLON.Color3(0.55, 0.75, 0.35);
+    ground.material = gm;
+
+    createClouds(scene, isDark);
+    _state.kite = createKite(scene);
+    _state.kite.position = new BABYLON.Vector3(0, 1.5, 0);
+    _state.tail = createTail(scene);
+
+    _state.engine = engine;
+    _state.scene = scene;
+
+    engine.runRenderLoop(() => {
+      updateKiteMotion();
+      scene.render();
+    });
+
+    const resizeHandler = () => { try { engine.resize(); } catch {} };
+    _state.resizeHandler = resizeHandler;
+    window.addEventListener('resize', resizeHandler);
+  } catch (err) {
+    console.error('[leveller] init error', err);
+    showAlert('Failed to initialize Leveller visuals', 'Error');
   }
 }
 
@@ -198,129 +188,144 @@ function loadBabylon() {
 }
 
 async function startRound() {
-  const betInput = document.getElementById('levellerBet');
-  const bet = Number(betInput.value);
-  if (!bet || bet < 10) return showAlert('Minimum bet is NGN 10');
-  const bal = await currentBalance();
-  if (bet > bal) return showAlert('Insufficient balance');
+  try {
+    const betInput = document.getElementById('levellerBet');
+    const bet = Number(betInput.value);
+    if (!bet || bet < 10) return showAlert('Minimum bet is NGN 10');
+    const bal = await currentBalance();
+    if (bet > bal) return showAlert('Insufficient balance');
 
-  const r = await fetch('/api/games?action=balance-op', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      deviceId: getDeviceId(), amount: bet, operation: 'subtract',
-      description: 'Leveller bet', gameName: 'leveller'
-    })
-  });
-  const d = await r.json();
-  if (!r.ok) return showAlert(d.error);
-  if (d.user) setCurrentUser(d.user);
+    const d = await apiFetch('/api/games?action=balance-op', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: getDeviceId(), amount: bet, operation: 'subtract', description: 'Leveller bet', gameName: 'leveller' })
+    });
+    if (d.user) setCurrentUser(d.user);
 
-  const cr = await fetch('/api/games?action=odds', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId: getDeviceId(), game: 'leveller' })
-  });
-  const cd = await cr.json();
+    const cd = await apiFetch('/api/games?action=odds', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: getDeviceId(), game: 'leveller' })
+    });
 
-  _state.running = true;
-  _state.bet = bet;
-  _state.crashPoint = cd.crashPoint;
-  _state.currentOdds = 1.0;
-  _state.cashedOut = false;
-  _state.cashoutAt = 0;
+    _state.running = true;
+    _state.bet = bet;
+    _state.crashPoint = Number(cd.crashPoint) || 2.0; // safe fallback
+    _state.currentOdds = 1.0;
+    _state.cashedOut = false;
+    _state.cashoutAt = 0;
 
-  document.getElementById('betOverlay').style.display = 'none';
-  document.getElementById('crashFlash').style.display = 'none';
-  document.getElementById('oddsOverlay').textContent = '1.00x';
+    document.getElementById('betOverlay').style.display = 'none';
+    document.getElementById('crashFlash').style.display = 'none';
+    document.getElementById('oddsOverlay').textContent = '1.00x';
 
-  const buttons = document.getElementById('levellerButtons');
-  buttons.style.gridTemplateColumns = '1fr 1fr';
-  buttons.innerHTML = `
-    <button id="startLeveller" class="wb-btn-primary" disabled style="opacity:0.5;">Running...</button>
-    <button id="cashoutLeveller" class="wb-btn-primary" style="background:#f59e0b;"><i class="fas fa-hand-holding-usd"></i> Cashout</button>
-  `;
-  document.getElementById('cashoutLeveller').onclick = cashout;
+    const buttons = document.getElementById('levellerButtons');
+    buttons.style.gridTemplateColumns = '1fr 1fr';
+    buttons.innerHTML = `
+      <button id="startLeveller" class="wb-btn-primary" disabled style="opacity:0.5;">Running...</button>
+      <button id="cashoutLeveller" class="wb-btn-primary" style="background:#f59e0b;"><i class="fas fa-hand-holding-usd"></i> Cashout</button>
+    `;
+    document.getElementById('cashoutLeveller').onclick = cashout;
 
-  const startTime = performance.now();
-  _state.intervalId = setInterval(() => {
-    const elapsed = (performance.now() - startTime) / 1000;
-    _state.currentOdds = Math.pow(1.15, elapsed * 3);
-    const oddsEl = document.getElementById('oddsOverlay');
-    oddsEl.textContent = _state.currentOdds.toFixed(2) + 'x';
-    if (_state.currentOdds >= _state.crashPoint && !_state.cashedOut) triggerCrash();
-  }, 60);
+    const startTime = performance.now();
+    _state.intervalId = setInterval(() => {
+      const elapsed = (performance.now() - startTime) / 1000;
+      _state.currentOdds = Math.pow(1.15, elapsed * 3);
+      const oddsEl = document.getElementById('oddsOverlay');
+      if (oddsEl) oddsEl.textContent = _state.currentOdds.toFixed(2) + 'x';
+      if (_state.currentOdds >= _state.crashPoint && !_state.cashedOut) triggerCrash();
+    }, 60);
+  } catch (err) {
+    showAlert(err.message || 'Failed to start round', 'Error');
+    // reset UI
+    endRound();
+  }
 }
 
 async function cashout() {
-  if (!_state.running || _state.cashedOut) return;
-  if (_state.currentOdds >= _state.crashPoint) return;
-  _state.cashedOut = true;
-  _state.cashoutAt = _state.currentOdds;
-  clearInterval(_state.intervalId);
+  try {
+    if (!_state.running || _state.cashedOut) return;
+    if (_state.currentOdds >= _state.crashPoint) return;
+    _state.cashedOut = true;
+    _state.cashoutAt = _state.currentOdds;
+    if (_state.intervalId) clearInterval(_state.intervalId);
 
-  const r = await fetch('/api/games?action=leveller-cashout', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      deviceId: getDeviceId(), bet: _state.bet,
-      crashPoint: _state.crashPoint,
-      cashoutAt: _state.cashoutAt, cashedOut: true
-    })
-  });
-  const d = await r.json();
-  if (!r.ok) return showAlert(d.error);
-  if (d.user) setCurrentUser(d.user);
-  showToast(`Cashed out @ ${_state.cashoutAt.toFixed(2)}x · +${money(d.payout)}`);
-  endRound();
+    const d = await apiFetch('/api/games?action=leveller-cashout', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: getDeviceId(), bet: _state.bet, crashPoint: _state.crashPoint, cashoutAt: _state.cashoutAt, cashedOut: true })
+    });
+    if (d.user) setCurrentUser(d.user);
+    showToast(`Cashed out @ ${_state.cashoutAt.toFixed(2)}x · +${money(d.payout)}`);
+    endRound();
+  } catch (err) {
+    showAlert(err.message || 'Cashout failed', 'Error');
+    endRound();
+  }
 }
 
 async function triggerCrash() {
-  clearInterval(_state.intervalId);
-  _state.running = false;
+  try {
+    if (_state.intervalId) clearInterval(_state.intervalId);
+    _state.running = false;
 
-  const flash = document.getElementById('crashFlash');
-  const text = document.getElementById('crashText');
-  text.textContent = _state.crashPoint.toFixed(2) + 'x';
-  flash.style.display = 'flex';
+    const flash = document.getElementById('crashFlash');
+    const text = document.getElementById('crashText');
+    if (text) text.textContent = _state.crashPoint.toFixed(2) + 'x';
+    if (flash) flash.style.display = 'flex';
 
-  const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-  hist.unshift(_state.crashPoint);
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 20)));
+    const hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    hist.unshift(_state.crashPoint);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist.slice(0, 20)));
 
-  await fetch('/api/games?action=leveller-cashout', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      deviceId: getDeviceId(), bet: _state.bet,
-      crashPoint: _state.crashPoint, cashedOut: false
-    })
-  });
-  showToast(`Crashed @ ${_state.crashPoint.toFixed(2)}x · Lost ${money(_state.bet)}`);
+    // notify server of loss
+    await apiFetch('/api/games?action=leveller-cashout', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: getDeviceId(), bet: _state.bet, crashPoint: _state.crashPoint, cashedOut: false })
+    }).catch(() => {});
 
-  setTimeout(() => endRound(), 2500);
+    showToast(`Crashed @ ${_state.crashPoint.toFixed(2)}x · Lost ${money(_state.bet)}`);
+
+    setTimeout(() => endRound(), 2500);
+  } catch (err) {
+    console.error('[leveller] crash error', err);
+    setTimeout(() => endRound(), 2500);
+  }
 }
 
 function endRound() {
   _state.running = false;
   _state.currentOdds = 1.0;
   setTimeout(() => {
-    document.getElementById('oddsOverlay').textContent = '1.00x';
+    const oddsOverlay = document.getElementById('oddsOverlay');
+    if (oddsOverlay) oddsOverlay.textContent = '1.00x';
     const flash = document.getElementById('crashFlash');
     if (flash) flash.style.display = 'none';
     const overlay = document.getElementById('betOverlay');
     if (overlay) overlay.style.display = 'flex';
     const buttons = document.getElementById('levellerButtons');
-    buttons.style.gridTemplateColumns = '1fr';
-    buttons.innerHTML = `<button id="startLeveller" class="wb-btn-primary"><i class="fas fa-play"></i> Start Game</button>`;
-    document.getElementById('startLeveller').onclick = startRound;
-    if (_state.kite) _state.kite.position.y = 1.5;
+    if (buttons) {
+      buttons.style.gridTemplateColumns = '1fr';
+      buttons.innerHTML = `<button id="startLeveller" class="wb-btn-primary"><i class="fas fa-play"></i> Start Game</button>`;
+      document.getElementById('startLeveller').onclick = startRound;
+    }
+    if (_state.kite) try { _state.kite.position.y = 1.5; } catch {}
   }, 1500);
 }
 
 function cleanup() {
-  if (_state.intervalId) clearInterval(_state.intervalId);
-  if (_state.engine) _state.engine.stopRenderLoop();
+  if (_state.intervalId) { clearInterval(_state.intervalId); _state.intervalId = null; }
+  if (_state.engine) {
+    try { _state.engine.stopRenderLoop(); } catch {}
+    try { _state.engine.dispose(); } catch {}
+    _state.engine = null;
+  }
+  if (_state.resizeHandler) { window.removeEventListener('resize', _state.resizeHandler); _state.resizeHandler = null; }
 }
 
 async function currentBalance() {
-  const r = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
-  const u = await r.json();
-  return u.balance || 0;
+  try {
+    const u = await apiFetch('/api/users?action=me');
+    if (u && u.balance != null) return Number(u.balance);
+    return 0;
+  } catch {
+    return 0;
+  }
 }
