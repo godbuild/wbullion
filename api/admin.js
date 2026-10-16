@@ -28,6 +28,8 @@ export default async function handler(req, res) {
     case 'broadcast':        return broadcast(req, res);
     case 'badges':           return badges(req, res);
     case 'statistics':       return statistics(req, res);
+    case 'sessions-list':    return sessionsList(req, res);
+    case 'sessions-revoke':  return sessionsRevoke(req, res);
     default: return res.status(400).json({ error: 'Unknown admin action' });
   }
 }
@@ -84,6 +86,29 @@ async function auth(req, res) {
 
   await createSession({ deviceId, authMethod: 'password', adminUserId: null });
   res.status(200).json({ success: true, authMethod: 'password' });
+}
+
+async function sessionsList(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  const sb = getAdminClient();
+  const { data, error } = await sb.from('admin_sessions')
+    .select('id, device_id, auth_method, admin_user_id, expires_at, created_at, revoked')
+    .order('created_at', { ascending: false }).limit(200);
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(200).json({ sessions: data || [] });
+}
+
+async function sessionsRevoke(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { deviceId } = req.body || {};
+  if (!deviceId) return res.status(400).json({ error: 'deviceId required' });
+  try {
+    await revokeSession(deviceId);
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 }
 
 async function session(req, res) {
@@ -256,10 +281,6 @@ async function resetAll(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const sb = getAdminClient();
   const suffix = `wiped_${Date.now()}`;
-  const { error } = await sb.from('users').update({
-    deleted_at: new Date().toISOString(),
-    email: sb.rpc ? undefined : undefined
-  }).is('deleted_at', null);
   // Simple brute force: fetch IDs, then update each
   const { data: users } = await sb.from('users').select('id, email, username, unique_id').is('deleted_at', null);
   if (users) {
@@ -342,15 +363,15 @@ async function receipt(req, res) {
   const date = new Date(p.reviewed_at || p.submitted_at).toLocaleString('en-NG');
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>W Bullion Receipt</title>
-<style>body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6fb;padding:24px;color:#1f3723}.card{max-width:560px;margin:auto;background:white;border-radius:16px;padding:32px;box-shadow:0 10px 30px rgba(0,0,0,0.08)}.head{display:flex;align-items:center;gap:14px;margin-bottom:24px}.head img{width:56px;height:56px;border-radius:50%}.head h1{font-size:22px;margin:0}.row{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid #e5e7eb;font-size:14px}.row:last-child{border-bottom:none}.label{color:#6b8070}.value{font-weight:600}.total{background:linear-gradient(135deg,#3ba072,#154c00);color:white;text-align:center;padding:20px;border-radius:12px;margin:20px 0}.total .amount{font-size:32px;font-weight:bold}.success{background:#e1fedb;color:#154c00;padding:14px;border-radius:12px;text-align:center;font-weight:600;font-size:14px;margin-top:20px}.foot{margin-top:28px;text-align:center;color:#6b8070;font-size:13px}</style></head>
-<body><div class="card"><div class="head"><img src="${process.env.PUBLIC_URL || ''}/images/logo.png" alt="W Bullion"><div><h1>W Bullion</h1><p>Activation Receipt</p></div></div>
+<style>body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f6fb;padding:24px;color:#1f3723}.card{max-width:560px;margin:auto;background:white;border-radius:16px;padding:32px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}.head{display:flex;gap:12px;align-items:center}h1{margin:0} .row{display:flex;justify-content:space-between;padding:8px 0}.total{margin-top:18px}.amount{font-size:20px;font-weight:bold}</style></head>
+<body><div class="card"><div class="head"><img src="${process.env.PUBLIC_URL || ''}/images/logo.png" alt="W Bullion" style="width:48px;height:48px;margin-right:12px"><div><h1>W Bullion</h1><p style="margin:0">Activation Receipt</p></div></div>
 <div class="row"><span class="label">Full Name</span><span class="value">${fullName}</span></div>
 <div class="row"><span class="label">Bank Name</span><span class="value">${bank}</span></div>
 <div class="row"><span class="label">Account Number</span><span class="value">${account}</span></div>
 <div class="row"><span class="label">Date</span><span class="value">${date}</span></div>
 <div class="total"><p style="font-size:12px;opacity:0.9;margin:0;">Amount Paid</p><p class="amount" style="margin:6px 0;">NGN 500</p></div>
-<div class="success">✓ Activation Successful</div>
-<p class="foot">— The W Bullion Team</p></div></body></html>`;
+<div class="success" style="color:green;font-weight:bold;margin-top:12px">✓ Activation Successful</div>
+<p class="foot" style="margin-top:18px;opacity:0.8">— The W Bullion Team</p></div></body></html>`;
 
   res.setHeader('Content-Type', 'text/html');
   res.status(200).send(html);
@@ -515,6 +536,7 @@ async function statistics(req, res) {
     week: summarize(buckets.week),
     gameLosses: Math.round(gameLosses)
   });
+}
 
 async function setPassword(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -547,49 +569,4 @@ async function setPassword(req, res) {
   }
 }
 
-  const sb = getAdminClient();
-  const { data: user } = await sb.from('users').select('id, email')
-    .eq('email', email.toLowerCase()).maybeSingle();
-  if (!user) return res.status(404).json({ error: 'User not found' });
-
-  const hash = await hashPassword(newPassword);
-  await sb.from('users').update({
-    password_hash: hash,
-    updated_at: new Date().toISOString()
-  }).eq('id', user.id);
-
-  res.status(200).json({ success: true, email: user.email });
-}
-
-  async function setPassword(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  const { email, newPassword, secret } = req.body || {};
-  if (secret !== 'wbullion-2026') return res.status(403).json({ error: 'Forbidden' });
-  if (!email || !newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'email + newPassword (min 6) required' });
-  }
-
-  try {
-    const nodeCrypto = await import('node:crypto');
-    const salt = nodeCrypto.randomBytes(16);
-    const hash = nodeCrypto.pbkdf2Sync(newPassword, salt, 100000, 32, 'sha256');
-    const stored = `pbkdf2$100000$${salt.toString('hex')}$${hash.toString('hex')}`;
-
-    const sb = getAdminClient();
-    const { data: user, error: findErr } = await sb.from('users')
-      .select('id, email').eq('email', email.toLowerCase()).maybeSingle();
-    if (findErr) return res.status(500).json({ error: 'DB find: ' + findErr.message });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const { error: upErr } = await sb.from('users').update({
-      password_hash: stored,
-      updated_at: new Date().toISOString()
-    }).eq('id', user.id);
-    if (upErr) return res.status(500).json({ error: 'DB update: ' + upErr.message });
-
-    res.status(200).json({ success: true, email: user.email });
-  } catch (err) {
-    res.status(500).json({ error: 'Server: ' + (err.message || String(err)) });
-  }
-}
-}
+// End of file
