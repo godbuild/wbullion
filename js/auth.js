@@ -7,7 +7,7 @@ export function getDeviceId() {
   let id = localStorage.getItem(DEVICE_KEY);
   if (!id) {
     id = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem(DEVICE_KEY, id);
+    try { localStorage.setItem(DEVICE_KEY, id); } catch (e) {}
   }
   return id;
 }
@@ -16,8 +16,10 @@ export function getCurrentUser() { return _user; }
 
 export function setCurrentUser(user) {
   _user = user;
-  if (user) localStorage.setItem(KEY, user.email);
-  else localStorage.removeItem(KEY);
+  try {
+    if (user) localStorage.setItem(KEY, JSON.stringify(user));
+    else localStorage.removeItem(KEY);
+  } catch (e) { try { localStorage.setItem(KEY, ''); } catch (e) {} }
 }
 
 export async function loadUserFromServer() {
@@ -28,7 +30,10 @@ export async function loadUserFromServer() {
     const user = await res.json();
     setCurrentUser(user);
     return user;
-  } catch { return null; }
+  } catch (err) {
+    console.error('[auth] loadUserFromServer error', err);
+    return null;
+  }
 }
 
 export async function refreshUser() {
@@ -45,7 +50,7 @@ export async function logout() {
     });
   } catch {}
   setCurrentUser(null);
-  localStorage.removeItem(KEY);
+  try { localStorage.removeItem(KEY); } catch (e) {}
 }
 
 export function isBanned(user) { return user && user.banned === true; }
