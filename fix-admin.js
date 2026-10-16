@@ -1,32 +1,34 @@
 // fix-admin.js
 // Run with: node fix-admin.js
-// Fixes the admin panel's fetch calls to match the consolidated API.
+// Converts admin client fetch paths to the consolidated /api/admin?action=... form.
+// ESM-compatible for repositories with "type":"module" in package.json
 
-const fs = require('fs');
+import fs from 'fs';
 
 const FILE = 'js/admin/main.js';
 
 const replacements = [
   // Most-specific first
-  { find: /\/admin\/auth\?action=session/g,        replace: '/admin?action=session' },
-  { find: /\/admin\/auth\?action=logout/g,         replace: '/admin?action=logout' },
-  { find: /\/admin\/auth(?=[`'"\s]|$)/g,           replace: '/admin?action=auth' },
-  { find: /\/admin\/users\/\$\{([^}]+)\}/g,        replace: '/admin?action=users-single&id=$${$1}' },
-  { find: /\/admin\/users\?q=/g,                   replace: '/admin?action=users-list&q=' },
-  { find: /\/admin\/users\?limit=/g,               replace: '/admin?action=users-list&limit=' },
-  { find: /\/admin\/users(?=[`'"\s?]|$)/g,         replace: '/admin?action=users-list' },
-  { find: /\/admin\/payments\/\$\{([^}]+)\}/g,     replace: '/admin?action=payments-single&id=$${$1}' },
-  { find: /\/admin\/payments\?status=/g,           replace: '/admin?action=payments-list&status=' },
-  { find: /\/admin\/payments(?=[`'"\s?]|$)/g,      replace: '/admin?action=payments-list' },
-  { find: /\/admin\/stats/g,                       replace: '/admin?action=stats' },
-  { find: /\/admin\/ban/g,                         replace: '/admin?action=ban' },
-  { find: /\/admin\/reset-all/g,                   replace: '/admin?action=reset-all' },
-  { find: /\/admin\/reset(?=[`'"\s?]|$)/g,         replace: '/admin?action=reset' },
-  { find: /\/admin\/receipt\?paymentId=/g,         replace: '/admin?action=receipt&paymentId=' },
-  { find: /\/admin\/send-email/g,                  replace: '/admin?action=send-email' },
-  { find: /\/admin\/broadcast/g,                   replace: '/admin?action=broadcast' },
-  { find: /\/admin\/badges/g,                      replace: '/admin?action=badges' },
-  { find: /\/admin\/statistics/g,                  replace: '/admin?action=statistics' },
+  { find: /\/admin\/auth\?action=session/g,        replace: '/api/admin?action=session' },
+  { find: /\/admin\/auth\?action=logout/g,         replace: '/api/admin?action=logout' },
+  { find: /\/admin\/auth(?=[`'"\s]|$)/g,           replace: '/api/admin?action=auth' },
+  // Replace template-literal style /admin/users/${id} -> /api/admin?action=users-single&id=${id}
+  { find: /\/admin\/users\/\$\{([^}]+)\}/g,     replaceFn: (m, p1) => '/api/admin?action=users-single&id=${' + p1 + '}' },
+  { find: /\/admin\/users\?q=/g,                   replace: '/api/admin?action=users-list&q=' },
+  { find: /\/admin\/users\?limit=/g,               replace: '/api/admin?action=users-list&limit=' },
+  { find: /\/admin\/users(?=[`'"\s?]|$)/g,         replace: '/api/admin?action=users-list' },
+  { find: /\/admin\/payments\/\$\{([^}]+)\}/g,   replaceFn: (m, p1) => '/api/admin?action=payments-single&id=${' + p1 + '}' },
+  { find: /\/admin\/payments\?status=/g,           replace: '/api/admin?action=payments-list&status=' },
+  { find: /\/admin\/payments(?=[`'"\s?]|$)/g,      replace: '/api/admin?action=payments-list' },
+  { find: /\/admin\/stats/g,                       replace: '/api/admin?action=stats' },
+  { find: /\/admin\/ban/g,                         replace: '/api/admin?action=ban' },
+  { find: /\/admin\/reset-all/g,                   replace: '/api/admin?action=reset-all' },
+  { find: /\/admin\/reset(?=[`'"\s?]|$)/g,         replace: '/api/admin?action=reset' },
+  { find: /\/admin\/receipt\?paymentId=/g,         replace: '/api/admin?action=receipt&paymentId=' },
+  { find: /\/admin\/send-email/g,                  replace: '/api/admin?action=send-email' },
+  { find: /\/admin\/broadcast/g,                   replace: '/api/admin?action=broadcast' },
+  { find: /\/admin\/badges/g,                      replace: '/api/admin?action=badges' },
+  { find: /\/admin\/statistics/g,                  replace: '/api/admin?action=statistics' },
 ];
 
 if (!fs.existsSync(FILE)) {
@@ -38,7 +40,13 @@ let content = fs.readFileSync(FILE, 'utf8');
 const original = content;
 
 for (const r of replacements) {
-  content = content.replace(r.find, r.replace);
+  if (r.replaceFn) {
+    content = content.replace(r.find, function() {
+      return r.replaceFn.apply(null, arguments);
+    });
+  } else {
+    content = content.replace(r.find, r.replace);
+  }
 }
 
 if (content === original) {
