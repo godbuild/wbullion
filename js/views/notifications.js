@@ -1,6 +1,7 @@
 import { navigate } from '../router.js';
 import { getDeviceId } from '../auth.js';
-import { showToast } from '../modal.js';
+import { showToast, showAlert } from '../modal.js';
+import { apiFetch } from '../lib/api.js';
 
 const CATEGORIES = [
   { key: 'all', label: 'All' },
@@ -23,10 +24,9 @@ export async function renderNotifications(category = 'all') {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/notifications?action=list&deviceId=${encodeURIComponent(deviceId)}&category=${category}`);
-    const data = await res.json();
+    // apiFetch will attach deviceId for GET requests and handle 401/modal redirect
+    const data = await apiFetch(`/api/notifications?action=list&category=${encodeURIComponent(category)}`);
     const list = data.notifications || [];
     const counts = data.counts || {};
 
@@ -69,26 +69,38 @@ export async function renderNotifications(category = 'all') {
     document.getElementById('closeNotif').onclick = () => history.back();
 
     document.getElementById('markAllRead').onclick = async () => {
-      await fetch('/api/notifications?action=read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, all: true })
-      });
-      showToast('Marked all as read');
-      renderNotifications(category);
+      try {
+        await apiFetch('/api/notifications?action=read', {
+          method: 'POST',
+          body: JSON.stringify({ deviceId: getDeviceId(), all: true })
+        });
+        // hide notification pulse if present
+        document.querySelectorAll('.notifDot').forEach(el => el.style.display = 'none');
+        showToast('Marked all as read');
+        renderNotifications(category);
+      } catch (err) {
+        showAlert(err.message || 'Failed to mark as read', 'Error');
+      }
     };
 
+    // Attach click handlers to each notification entry
     document.querySelectorAll('#notifList [data-id]').forEach(el2 => {
       el2.onclick = async () => {
-        await fetch('/api/notifications?action=read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ deviceId, id: el2.dataset.id })
-        });
-        el2.style.background = 'var(--bg-primary)';
+        try {
+          await apiFetch('/api/notifications?action=read', {
+            method: 'POST',
+            body: JSON.stringify({ deviceId: getDeviceId(), id: el2.dataset.id })
+          });
+          el2.style.background = 'var(--bg-primary)';
+          // If all are read (or you want to clear pulse), hide notifDot
+          document.querySelectorAll('.notifDot').forEach(n => n.style.display = 'none');
+        } catch (err) {
+          showAlert(err.message || 'Failed to mark notification', 'Error');
+        }
       };
     });
-  } catch {
-    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary);">Failed to load</div>`;
+  } catch (err) {
+    // apiFetch already shows modal for 401; show generic failed UI otherwise
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary);">${err?.message || 'Failed to load'}</div>`;
   }
 }
