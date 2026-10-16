@@ -15,24 +15,20 @@ export function updateNavbar() {
   const nav = document.getElementById('bottomNav');
   if (!nav) return;
 
-  const path = getCurrentPath();
-  const user = getCurrentUser();
+  // Use direct window path & local cache as a fallback if getCurrentPath/getCurrentUser aren't ready
+  const path = (typeof getCurrentPath === 'function' ? getCurrentPath() : window.location.pathname) || '/';
+  const user = (typeof getCurrentUser === 'function' ? getCurrentUser() : null) || JSON.parse(localStorage.getItem('wb_currentUser') || 'null');
 
-  const shouldHide =
-    !user ||
-    HIDE_ON.some(p => path === p || path.startsWith(p + '/'));
+  const shouldHide = !user || HIDE_ON.some(p => path === p || path.startsWith(p + '/'));
 
-  if (shouldHide) {
-    nav.classList.add('hidden');
-    return;
-  }
-  nav.classList.remove('hidden');
+  nav.classList.toggle('hidden', shouldHide);
 
   nav.querySelectorAll('.nav-item').forEach(btn => {
     const route = btn.dataset.route;
-    const isActive = route === '/more'
+    const isMore = route === '/more';
+    const matches = isMore
       ? ['/more', '/settings', '/withdrawal', '/permissions', '/terms', '/help', '/badges', '/hoep', '/er', '/referral'].includes(path)
       : path === route || path.startsWith(route + '/');
-    btn.classList.toggle('active', isActive);
+    btn.classList.toggle('active', matches);
   });
 }
