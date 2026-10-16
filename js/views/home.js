@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { getCurrentUser, setCurrentUser, getDeviceId } from '../auth.js';
 import { showAlert, showToast } from '../modal.js';
 import { money, compact } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 let _pullActive = false;
 
@@ -102,13 +103,10 @@ export function renderHome() {
 async function handleClaimBonus() {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/bonus?action=daily&deviceId=${encodeURIComponent(deviceId)}`, {
+    const data = await apiFetch(`/api/bonus?action=daily`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Claim failed');
     setCurrentUser(data.user);
     showToast(`+${money(data.reward)} (Day ${data.streakDay})`);
     renderHome();
@@ -118,15 +116,12 @@ async function handleClaimBonus() {
 async function handleTelegramBonus() {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/bonus?action=telegram&deviceId=${encodeURIComponent(deviceId)}`, {
+    const data = await apiFetch(`/api/bonus?action=telegram`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Claim failed');
     window.open(data.link, '_blank');
-    setCurrentUser(data.user);
+    if (data.user) setCurrentUser(data.user);
     showToast(`+${money(data.reward)}`);
     renderHome();
   } catch (err) { showAlert(err.message, 'Error'); }
@@ -137,7 +132,8 @@ function setupPullToRefresh() {
   let startY = 0;
   el.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true });
   el.addEventListener('touchmove', (e) => {
-    if (window.scrollY > 0) return;
+    // Check container scrollTop rather than window.scrollY so we allow inner scrolling
+    if (el.scrollTop > 0) return;
     const dy = e.touches[0].clientY - startY;
     if (dy > 80 && !_pullActive) {
       _pullActive = true;
