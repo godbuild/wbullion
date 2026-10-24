@@ -207,9 +207,8 @@ async function startRound() {
     const betInput = document.getElementById('levellerBet');
     const bet = Number(betInput.value);
     if (!bet || bet < 10) return showAlert('Minimum bet is NGN 10');
-    const bal = await currentBalance();
-    if (bet > bal) return showAlert('Insufficient balance');
-
+    // Let the server validate and debit the current balance. The local
+    // profile can be stale after a win, bonus, or another open tab.
     const d = await apiFetch('/api/games?action=balance-op', {
       method: 'POST',
       body: JSON.stringify({ deviceId: getDeviceId(), amount: bet, operation: 'subtract', description: 'Leveller bet', gameName: 'leveller' })

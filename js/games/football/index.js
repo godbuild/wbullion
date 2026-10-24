@@ -76,7 +76,13 @@ async function startGame(config, takerData) {
   try {
     await loadBabylon();
   } catch (err) {
-    showAlert('Failed to load 3D engine', 'Error');
+    console.error('[football] Babylon load error', err);
+    el.innerHTML = `
+      <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+        <div><i class="fas fa-triangle-exclamation" style="font-size:42px;color:#fbbf24;margin-bottom:16px;"></i><h3>Football shootout unavailable</h3><p style="opacity:.8;margin:10px 0 20px;">The 3D game engine could not load. Check your connection and try again.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
+      </div>`;
+    document.getElementById('footballRetry')?.addEventListener('click', renderFootball);
+    document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
     return;
   }
 
@@ -89,7 +95,12 @@ async function startGame(config, takerData) {
     cameras = sceneObj.cameras;
   } catch (err) {
     console.error('[football] createScene error', err);
-    showAlert('Failed to start scene', 'Error');
+    el.innerHTML = `
+      <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+        <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">Your device does not support the required 3D graphics mode.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
+      </div>`;
+    document.getElementById('footballRetry')?.addEventListener('click', () => startGame(config, takerData));
+    document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
     return;
   }
 

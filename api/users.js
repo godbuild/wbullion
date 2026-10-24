@@ -39,7 +39,19 @@ async function me(req, res) {
   else if (identifier) query = query.eq('email', identifier.toLowerCase());
   else return res.status(400).json({ error: 'deviceId or identifier required' });
 
-  const { data: user } = await query.maybeSingle();
+  let { data: user } = await query.maybeSingle();
+
+  // A browser privacy reset can remove the device id while the signed-in
+  // profile is still available locally. Recover by email before declaring the
+  // session invalid so profile, search, Hoep and games keep working.
+  if (!user && deviceId) {
+    const identifier = req.query.email || req.query.identifier;
+    if (identifier) {
+      const { data: byEmail } = await sb.from('users').select('*')
+        .eq('email', identifier.trim().toLowerCase()).is('deleted_at', null).maybeSingle();
+      user = byEmail;
+    }
+  }
   if (!user) return res.status(404).json({ error: 'User not found' });
   if (user.banned) return res.status(403).json({ error: `Your account has been banned from operation due to ${user.ban_reason || 'violation of terms'}` });
   const { password_hash, ...safe } = user;
