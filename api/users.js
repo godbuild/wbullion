@@ -129,7 +129,6 @@ async function changePassword(req, res) {
 async function profile(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const viewer = await resolveUser(req);
-  if (!viewer) return res.status(401).json({ error: 'Not authenticated' });
   const { username } = req.query;
   if (!username) return res.status(400).json({ error: 'username required' });
   const clean = username.startsWith('@') ? username.toLowerCase() : '@' + username.toLowerCase();
@@ -138,7 +137,8 @@ async function profile(req, res) {
     .select('id, username, full_name, balance, badge_awarded, hoep_enabled, hoep_percentage, admin, visibility, bio, created_at')
     .eq('username', clean).is('deleted_at', null).maybeSingle();
   if (!user) return res.status(404).json({ error: 'User not found' });
-  if (user.visibility === false && user.id !== viewer.id) return res.status(403).json({ error: 'Not Available' });
+  if (user.visibility === false && user.id !== viewer?.id) return res.status(403).json({ error: 'Not Available' });
+  if (!viewer && user.visibility === false) return res.status(403).json({ error: 'Not Available' });
 
   const [{ count: followersCount }, { count: followingCount }, { count: referredCount }] = await Promise.all([
     sb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
@@ -147,12 +147,12 @@ async function profile(req, res) {
   ]);
 
   let following = false;
-  if (user.id !== viewer.id) {
+  if (viewer && user.id !== viewer.id) {
     const { data: f } = await sb.from('follows').select('id').eq('follower_id', viewer.id).eq('following_id', user.id).maybeSingle();
     following = !!f;
   }
 
-  const isOwner = user.id === viewer.id;
+  const isOwner = !!viewer && user.id === viewer.id;
   let hoepInfo = null;
   if (isOwner && user.hoep_enabled) {
     const { data: myTasks } = await sb.from('task_completions').select('user_id')

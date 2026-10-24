@@ -1,5 +1,5 @@
 import { navigate } from '../router.js';
-import { getDeviceId } from '../auth.js';
+import { getDeviceId, getCurrentUser } from '../auth.js';
 import { showAlert, showToast } from '../modal.js';
 
 const MAX_CAPTION = 80;
@@ -103,7 +103,7 @@ export function renderReelsCreate() {
       const signRes = await fetch('/api/reels?action=sign-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: getDeviceId() })
+        body: JSON.stringify({ deviceId: getDeviceId(), email: getCurrentUser()?.email })
       });
       const sign = await signRes.json();
       if (!signRes.ok) throw new Error(sign.error || 'Sign failed');

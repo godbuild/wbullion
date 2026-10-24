@@ -1,5 +1,12 @@
 import { navigate } from '../router.js';
 import { getCurrentUser, getDeviceId } from '../auth.js';
+
+function restoreAppTheme() {
+  document.documentElement.removeAttribute('data-reels-theme');
+  document.body.classList.remove('reels-active');
+  const app = document.getElementById('app');
+  if (app) app.style.background = '';
+}
 import { showToast, showConfirm } from '../modal.js';
 import { compact } from '../format.js';
 
@@ -41,7 +48,7 @@ export async function renderReels() {
     </div>
   `;
 
-  document.getElementById('reelsClose').onclick = () => navigate('/home');
+  document.getElementById('reelsClose').onclick = () => { restoreAppTheme(); navigate('/home'); };
   document.getElementById('createReelBtn').onclick = () => navigate('/reels/new/create');
 
   document.getElementById('reelsSearchBtn').onclick = () => {
@@ -62,8 +69,9 @@ export async function renderReels() {
 
 async function loadReels(q = '') {
   const deviceId = getDeviceId();
+  const email = getCurrentUser()?.email;
   try {
-    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}&q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}${email ? `&email=${encodeURIComponent(email)}` : ''}&q=${encodeURIComponent(q)}`);
     const data = await res.json();
     _state.reels = data.reels || [];
     _state.index = 0;
