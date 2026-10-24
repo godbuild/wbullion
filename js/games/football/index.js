@@ -62,6 +62,14 @@ export async function renderFootball() {
     config.takers = generateFallbackTakers();
   }
 
+  config.takers = config.takers.map((taker, index) => ({
+    ...taker,
+    id: taker.id || `fallback-${index + 1}`,
+    name: taker.name || `Taker ${index + 1}`,
+    number: Number.isFinite(Number(taker.number)) ? Number(taker.number) : index + 1,
+    dominant_foot: String(taker.dominant_foot || 'R').toUpperCase() === 'L' ? 'L' : 'R',
+    jersey_color: /^#[0-9a-f]{6}$/i.test(String(taker.jersey_color || '')) ? taker.jersey_color : '#3ba072'
+  }));
   renderTakerSelect(config.takers, (taker) => startGame(config, taker));
 }
 
@@ -122,7 +130,7 @@ async function startGame(config, takerData) {
       jerseyColor: safeColor
     });
   } catch (err) {
-    console.error('[football] object creation error', err);
+    console.error('[football] object creation error', err?.stack || err);
     try { engine.stopRenderLoop(); engine.dispose(); } catch {}
     el.innerHTML = `
       <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
