@@ -65,8 +65,14 @@ async function handleLogin(e) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password, deviceId: getDeviceId() })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const message = res.status >= 500
+        ? 'The login service is temporarily unavailable. Please try again.'
+        : (data.error || 'Invalid email or password');
+      throw new Error(message);
+    }
+    if (!data.user) throw new Error('The login service returned an invalid response. Please try again.');
 
     setCurrentUser(data.user);
     navigate(data.user.activated ? '/home' : '/activation');

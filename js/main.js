@@ -136,7 +136,7 @@ onRouteChange(() => { updateNavbar(); window.scrollTo(0, 0); });
   await loadUserFromServer();
   if (getCurrentUser()) startNotifPolling();
 
-initWWaiter();
+  initWWaiter();
 if (getCurrentUser()) initRealtime();
 
 // Hook global copy interceptor — every `navigator.clipboard.writeText` goes through W Waiter
@@ -150,8 +150,12 @@ if (originalClipboardWrite && isWWaiterSupported()) {
 }
 
 function isWWaiterSupported() {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-    && (JSON.parse(localStorage.getItem('wb_perms') || '{}').background === true);
+  try {
+    const perms = JSON.parse(localStorage.getItem('wb_perms') || '{}');
+    return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && perms.background === true;
+  } catch {
+    return false;
+  }
 }
 
 function detectSource(text) {
