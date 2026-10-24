@@ -1,6 +1,7 @@
 export function createTaker(scene, { name, number, dominantFoot, jerseyColor }) {
   const B = window.BABYLON;
-  const jersey = B.Color3.FromHexString(jerseyColor || '#3ba072');
+  const color = /^#[0-9a-f]{6}$/i.test(String(jerseyColor || '')) ? jerseyColor : '#3ba072';
+  const jersey = B.Color3.FromHexString(color);
 
   const root = new B.TransformNode('takerRoot', scene);
   root.position = new B.Vector3(0, 0, -8);

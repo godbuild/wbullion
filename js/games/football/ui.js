@@ -32,7 +32,10 @@ export function renderTakerSelect(takers, onSelect) {
         <p style="font-size:9px;opacity:0.7;">#${t.number} · ${t.dominant_foot}${t.dominant_foot === 'L' ? 'eft' : 'ight'}</p>
       </div>
     `;
-    card.onclick = () => onSelect(t);
+    card.onclick = () => {
+      grid.querySelectorAll('button').forEach(button => { button.disabled = true; button.style.opacity = '0.65'; });
+      onSelect(t);
+    };
     grid.appendChild(card);
   });
 
