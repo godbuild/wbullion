@@ -19,9 +19,14 @@ export function renderHome() {
       <h2 id="helloBtn" style="font-size:20px;font-weight:bold;cursor:pointer;">
         Hello, ${(user?.full_name || 'User').split(' ')[0]}
       </h2>
-      <button id="balanceBtn" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;padding:8px 16px;border-radius:20px;font-weight:bold;font-size:14px;cursor:pointer;border:none;">
-        ${money(user?.balance || 0)}
-      </button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="searchPeopleBtn" aria-label="Search people" style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);cursor:pointer;font-size:16px;">
+          <i class="fas fa-search"></i>
+        </button>
+        <button id="balanceBtn" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;padding:8px 16px;border-radius:20px;font-weight:bold;font-size:14px;cursor:pointer;border:none;">
+          ${money(user?.balance || 0)}
+        </button>
+      </div>
     </div>
 
     ${!claimedToday ? `
@@ -80,6 +85,7 @@ export function renderHome() {
 
   document.getElementById('helloBtn').addEventListener('click', () => navigate('/home/streak'));
   document.getElementById('balanceBtn').addEventListener('click', () => navigate('/home/balance'));
+  document.getElementById('searchPeopleBtn').addEventListener('click', () => navigate('/search'));
   document.getElementById('goGames').addEventListener('click', () => navigate('/games'));
   document.getElementById('goReels').addEventListener('click', () => navigate('/reels'));
 

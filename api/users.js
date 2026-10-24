@@ -172,7 +172,8 @@ async function search(req, res) {
   const sb = getAdminClient();
   const { data: users } = await sb.from('users')
     .select('id, username, full_name, badge_awarded, admin, visibility')
-    .ilike('username', `%${q}%`).is('deleted_at', null).limit(10);
+    .or(`username.ilike.%${q}%,full_name.ilike.%${raw}%`)
+    .is('deleted_at', null).limit(10);
   if (!users || users.length === 0) return res.status(200).json({ results: [], message: 'No Matching results' });
   const visible = [];
   for (const u of users) {

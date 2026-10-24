@@ -29,6 +29,7 @@ import { renderBadges } from './views/badges.js';
 import { renderSPTF } from './views/sptf.js';
 import { renderTasks } from './views/tasks.js';
 import { renderSettings } from './views/settings.js';
+import { renderSearch } from './views/search.js';
 
 import { renderHoep } from './views/hoep.js';
 import { renderER } from './views/er.js';
@@ -87,6 +88,7 @@ registerRoute('/games/leveller', () => { if (requireAuth()) renderLeveller(); })
 registerRoute('/games/bet-tictactoe', () => { if (requireAuth()) renderBetTTT(); });
 registerRoute('/games/football', () => { if (requireAuth()) renderFootball(); });
 registerRoute('/profile', () => { if (requireAuth()) renderProfile(); });
+registerRoute('/search', () => { if (requireAuth()) renderSearch(); });
 // Register the static notifications route before the dynamic username route.
 registerRoute('/profile/notifications', () => { if (requireAuth()) renderNotifications(); });
 registerRoute('/profile/:username', ({ username }) => { if (requireAuth()) renderProfile(username); });
