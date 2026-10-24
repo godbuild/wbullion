@@ -63,10 +63,12 @@ async function listBadges(req, res) {
   const { data } = await sb.from('badge_nominees').select('*').eq('user_id', user.id);
   const nominees = data || [];
   await sb.rpc('nominate_badge_candidates').catch(() => {});
+  const hasVerifiedBadge = Boolean(user.badge_awarded || user.admin);
   res.status(200).json({
     badges: nominees.filter(n => n.status === 'confirmed' || n.status === 'claimed'),
-    pending: nominees.filter(n => n.status === 'confirmed' && !user.badge_awarded_at),
-    hasBadge: user.badge_awarded
+    pending: nominees.filter(n => n.status === 'confirmed' && !hasVerifiedBadge),
+    hasBadge: hasVerifiedBadge,
+    badge: hasVerifiedBadge ? { category: 'verified', awardedAt: user.badge_awarded_at || null, admin: Boolean(user.admin) } : null
   });
 }
 
