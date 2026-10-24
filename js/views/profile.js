@@ -119,7 +119,7 @@ export async function renderProfile(username) {
       const res2 = await fetch('/api/users?action=follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, username: user.username, action })
+        body: JSON.stringify({ deviceId, email: me?.email || undefined, username: user.username, action })
       });
       const d = await res2.json();
       if (!res2.ok) return showToast(d.error || 'Error');

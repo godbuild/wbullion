@@ -25,7 +25,11 @@ export function setCurrentUser(user) {
 export async function loadUserFromServer() {
   const deviceId = getDeviceId();
   try {
-    const res = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(deviceId)}`);
+    const saved = (() => {
+      try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { return null; }
+    })();
+    const email = saved?.email ? `&email=${encodeURIComponent(saved.email)}` : '';
+    const res = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(deviceId)}${email}`);
     if (!res.ok) return null;
     const user = await res.json();
     setCurrentUser(user);
