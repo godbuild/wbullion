@@ -26,7 +26,7 @@ export async function renderTicTacToe() {
   try {
     const oddsRes = await fetch('/api/games?action=odds', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' })
+      body: JSON.stringify({         deviceId: getDeviceId(), game: 'tictactoe' })
     });
     const oddsData = await oddsRes.json();
     _state.boxValues = oddsData.portions || Array.from({ length: 9 }, () => Math.floor(Math.random() * 61) + 120);
@@ -131,15 +131,15 @@ async function endGame(result) {
     const reward = _state.winLine.reduce((s, i) => s + _state.boxValues[i], 0);
     status.textContent = `You won! +${money(reward)}`;
     status.style.color = '#10b981';
-    await fetch('/api/games?action=balance-op', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const payout = await apiFetch('/api/games?action=balance-op', {
+      method: 'POST',
       body: JSON.stringify({
         deviceId: getDeviceId(), amount: reward, operation: 'add',
         description: 'Tic-Tac-Toe win', gameName: 'tictactoe', isGameWin: true
       })
     });
+    if (payout.user) setCurrentUser(payout.user);
     showToast(`+${money(reward)}`);
-    reloadUser();
   } else if (result === _state.computerSymbol) {
     if (_state.winLine) await drawPencilLine(_state.winLine);
     const u = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`).then(r => r.json());

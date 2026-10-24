@@ -29,7 +29,7 @@ export async function renderSearch() {
       return;
     }
     try {
-      const data = await apiFetch(`/api/users?action=search&q=${encodeURIComponent(term)}`);
+      const data = await apiFetch(`/api/users?action=search&q=${encodeURIComponent(term)}`, { suppressAuthRedirect: true });
       const list = data.results || [];
       if (!list.length) {
         results.innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-secondary);">No matching users found.</div>';
