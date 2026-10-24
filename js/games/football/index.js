@@ -92,8 +92,19 @@ async function startGame(config, takerData) {
       <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
         <div><i class="fas fa-triangle-exclamation" style="font-size:42px;color:#fbbf24;margin-bottom:16px;"></i><h3>Football shootout unavailable</h3><p style="opacity:.8;margin:10px 0 20px;">The 3D game engine could not load. Check your connection and try again.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
       </div>`;
-    document.getElementById('footballRetry')?.addEventListener('click', renderFootball);
-    document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
+    const retryButton = document.getElementById('footballRetry');
+    const backButton = document.getElementById('footballBack');
+    if (retryButton) {
+      retryButton.type = 'button';
+      retryButton.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        retryButton.disabled = true;
+        retryButton.textContent = 'Retrying…';
+        window.setTimeout(() => renderFootball(), 0);
+      };
+    }
+    if (backButton) backButton.onclick = () => navigate('/games');
     return;
   }
 
@@ -136,8 +147,20 @@ async function startGame(config, takerData) {
       <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
         <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">We could not load this taker. You can retry without losing your selection.</p><button id="footballRetry" class="wb-btn-primary">Retry taker</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
       </div>`;
-    document.getElementById('footballRetry')?.addEventListener('click', () => startGame(config, takerData));
-    document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
+    const retryButton = document.getElementById('footballRetry');
+    const backButton = document.getElementById('footballBack');
+    if (retryButton) {
+      retryButton.type = 'button';
+      retryButton.disabled = false;
+      retryButton.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        retryButton.disabled = true;
+        retryButton.textContent = 'Retrying…';
+        window.setTimeout(() => startGame(config, takerData), 0);
+      };
+    }
+    if (backButton) backButton.onclick = () => navigate('/games');
     return;
   }
 
