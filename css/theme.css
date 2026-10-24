@@ -257,6 +257,10 @@ body {
 .bal-tab { transition: background 0.2s, color 0.2s; }
 .week-body { transition: max-height 0.2s ease; }
 
+.full-bleed-view { padding: 0 !important; min-height: 100dvh; }
+.football-active #viewContainer { overflow: hidden; }
+.football-stage { z-index: 1; }
+
 /* Reels dark override */
 html[data-reels-theme="dark"] body { background: #000; }
 html[data-reels-theme="dark"] #app { background: #000; }

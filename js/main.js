@@ -110,9 +110,20 @@ function applyTheme(theme) {
 }
 
 onRouteChange((path) => {
+  const view = document.getElementById('viewContainer');
+  const app = document.getElementById('app');
+  document.body.classList.remove('reels-active', 'football-active');
+  document.body.style.cssText = '';
+  document.documentElement.removeAttribute('data-reels-theme');
+  if (view) {
+    view.style.padding = '';
+    view.style.minHeight = '';
+    view.style.background = '';
+    view.classList.remove('full-bleed-view');
+  }
+  if (app) app.style.background = '';
   updateNavbar();
   window.scrollTo(0, 0);
-  if (!path.startsWith('/reels')) document.documentElement.removeAttribute('data-reels-theme');
 });
 
 // ---------- Boot ----------

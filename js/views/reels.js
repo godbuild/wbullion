@@ -4,8 +4,15 @@ import { getCurrentUser, getDeviceId } from '../auth.js';
 function restoreAppTheme() {
   document.documentElement.removeAttribute('data-reels-theme');
   document.body.classList.remove('reels-active');
+  document.body.style.cssText = '';
   const app = document.getElementById('app');
+  const view = document.getElementById('viewContainer');
   if (app) app.style.background = '';
+  if (view) {
+    view.style.padding = '';
+    view.style.minHeight = '';
+    view.classList.remove('full-bleed-view');
+  }
 }
 import { showToast, showConfirm } from '../modal.js';
 import { compact } from '../format.js';
