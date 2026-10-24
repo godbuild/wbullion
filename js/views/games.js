@@ -16,6 +16,8 @@ export function renderGames() {
       <p style="font-size:26px;font-weight:bold;">${money(user?.balance || 0)}</p>
     </div>
 
+    <p style="color:var(--text-secondary);font-size:13px;margin:-10px 0 16px;">Choose a game to start. Football players currently use numbered placeholders until names and images are added.</p>
+
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="gameCard" data-game="football" style="background:linear-gradient(135deg,#10b981,#059669);padding:24px;border-radius:16px;color:white;cursor:pointer;">
         <div style="font-size:40px;margin-bottom:8px;"><i class="fas fa-futbol"></i></div>

@@ -1,10 +1,19 @@
-import { logout, getDeviceId } from '../auth.js';
+import { logout, getDeviceId, getCurrentUser } from '../auth.js';
 import { showAlert } from '../modal.js';
 import { navigate } from '../router.js';
 
 export async function apiFetch(url, opts = {}) {
   const method = (opts.method || 'GET').toUpperCase();
   opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+
+  // Send both identifiers so requests remain valid after a browser clears or changes its device id.
+  const currentUser = getCurrentUser();
+  if (currentUser?.email && method !== 'GET' && opts.body) {
+    try {
+      const body = JSON.parse(opts.body);
+      if (!body.email) { body.email = currentUser.email; opts.body = JSON.stringify(body); }
+    } catch {}
+  }
 
   // Add deviceId to GET URLs if not present
   if (method === 'GET' && !/deviceId=/.test(url)) {

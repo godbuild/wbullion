@@ -24,8 +24,8 @@ export function renderTakerSelect(takers, onSelect) {
     `;
     card.innerHTML = `
       <div style="flex:1;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,#3ba07233,#0000);">
-        ${t.image_url ? `<img src="${t.image_url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">` : ''}
-        <span style="${t.image_url ? 'display:none;' : ''}font-size:26px;font-weight:900;color:white;">${t.number}</span>
+        ${t.image_url ? `<img src="${t.image_url}" alt="${t.name} placeholder" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span style="${t.image_url ? 'display:none;' : 'display:flex;'}width:100%;height:100%;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:white;">${t.number}</span>
       </div>
       <div style="background:rgba(0,0,0,0.5);padding:4px 2px;text-align:center;">
         <p style="font-size:10px;font-weight:700;line-height:1.1;">${t.name}</p>

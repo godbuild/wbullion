@@ -11,8 +11,19 @@ let _visible = false;
 const nativeClipboardWrite = navigator.clipboard?.writeText?.bind(navigator.clipboard);
 
 export async function copyToClipboard(text) {
-  if (!nativeClipboardWrite) throw new Error('Clipboard access is unavailable');
-  return nativeClipboardWrite(String(text));
+  const value = String(text);
+  if (nativeClipboardWrite) {
+    try { return await nativeClipboardWrite(value); } catch {}
+  }
+  const area = document.createElement('textarea');
+  area.value = value;
+  area.setAttribute('readonly', '');
+  area.style.cssText = 'position:fixed;top:-9999px;opacity:0;';
+  document.body.appendChild(area);
+  area.select();
+  const copied = document.execCommand('copy');
+  area.remove();
+  if (!copied) throw new Error('Clipboard access is unavailable');
 }
 
 function isMobile() {
