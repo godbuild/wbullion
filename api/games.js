@@ -114,15 +114,17 @@ async function balanceOp(req, res) {
 
   const sb = getAdminClient();
   const newBalance = operation === 'add' ? Number(user.balance || 0) + amt : Number(user.balance || 0) - amt;
-  const { data: updated } = await sb.from('users').update({
+  const { data: updated, error: updateError } = await sb.from('users').update({
     balance: newBalance, updated_at: new Date().toISOString()
   }).eq('id', user.id).select('*').single();
+  if (updateError || !updated) return res.status(500).json({ error: 'Balance update failed' });
 
-  await sb.from('transactions').insert({
+  const { error: transactionError } = await sb.from('transactions').insert({
     user_id: user.id, type: operation === 'add' ? 'credit' : 'debit', amount: amt,
     description: description || (operation === 'add' ? 'Game win' : 'Game play'),
     game_name: gameName || null
   });
+  if (transactionError) return res.status(500).json({ error: 'Transaction could not be recorded' });
   await sb.from('action_logs').insert({
     user_id: user.id,
     action: isGameLoss ? 'game_loss' : (isGameWin ? 'game_win' : 'balance_op'),
@@ -217,7 +219,7 @@ async function betTTT(req, res) {
   });
 
   const won = outcome === choice;
-  const winOdds = Number(odds) || 2.5;
+  const winOdds = Number(odds[choice]) || 2.5;
   const payout = won ? Math.floor(b * winOdds) : 0;
   let finalBalance = afterBet;
 

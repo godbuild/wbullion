@@ -93,15 +93,24 @@ async function startGame(config, takerData) {
     return;
   }
 
-  const goal = createGoalpost(scene, { logoTextureUrl: '/images/logo.png' });
-  const ball = createBall(scene, '/images/logo.png');
-  const keeper = createKeeper(scene);
-  const taker = createTaker(scene, {
+  let goal, ball, keeper, taker;
+  try {
+    goal = createGoalpost(scene, { logoTextureUrl: '/images/logo.png' });
+    ball = createBall(scene, '/images/logo.png');
+    keeper = createKeeper(scene);
+    taker = createTaker(scene, {
     name: takerData.name,
     number: takerData.number,
     dominantFoot: takerData.dominant_foot,
     jerseyColor: takerData.jersey_color || '#3ba072'
-  });
+    });
+  } catch (err) {
+    console.error('[football] object creation error', err);
+    try { engine.stopRenderLoop(); engine.dispose(); } catch {}
+    showAlert('Football shootout could not start. Please choose another taker.', 'Error');
+    renderTakerSelect(config.takers, (takerData) => startGame(config, takerData));
+    return;
+  }
 
   const ballCtrl = createBallController(scene, ball);
   const replay = createReplayController(scene, cameras, ball, taker, keeper, goal);

@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
 import { showToast } from '../modal.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 export function renderRPS() {
   const el = document.getElementById('viewContainer');
@@ -95,18 +96,17 @@ function determineWinner(p, c) {
 }
 
 async function creditWin(amount, desc) {
-  const res = await fetch('/api/games?action=balance-op', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const d = await apiFetch('/api/games?action=balance-op', {
+    method: 'POST',
     body: JSON.stringify({ deviceId: getDeviceId(), amount, operation: 'add', description: desc, gameName: 'rps', isGameWin: true })
   });
-  const d = await res.json();
   if (d.user) setCurrentUser(d.user);
   showToast(`+${money(amount)}`);
 }
 
 async function deductLoss(amount, desc) {
-  await fetch('/api/games?action=balance-op', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  await apiFetch('/api/games?action=balance-op', {
+    method: 'POST',
     body: JSON.stringify({ deviceId: getDeviceId(), amount, operation: 'subtract', description: desc, gameName: 'rps', isGameLoss: true })
   });
   const r = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
