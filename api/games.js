@@ -184,7 +184,7 @@ async function levellerCashout(req, res) {
     user_id: user.id, action: 'game_loss', meta: { game: 'leveller', amount: b }
   });
   await sb.from('transactions').insert({
-    user_id: user.id, type: 'debit', amount: 0,
+    user_id: user.id, type: 'debit', amount: b,
     description: `Leveller crashed @ ${cp.toFixed(2)}x`, game_name: 'leveller'
   });
   res.status(200).json({ success: true, won: false, crashPoint: cp });

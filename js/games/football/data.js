@@ -1,10 +1,12 @@
-import { getDeviceId, setCurrentUser } from '../../auth.js';
+import { getDeviceId, getCurrentUser, setCurrentUser } from '../../auth.js';
 import { apiFetch } from '../../lib/api.js';
 
 let _config = null;
 
 export async function loadFootballConfig() {
-  const r = await fetch(`/api/games?action=football-config&deviceId=${encodeURIComponent(getDeviceId())}`);
+  const email = getCurrentUser()?.email;
+  const identity = `deviceId=${encodeURIComponent(getDeviceId())}${email ? `&email=${encodeURIComponent(email)}` : ''}`;
+  const r = await fetch(`/api/games?action=football-config&${identity}`);
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || 'Failed to load config');
   _config = d;
@@ -12,7 +14,9 @@ export async function loadFootballConfig() {
 }
 
 export async function refreshWallet() {
-  const r = await fetch(`/api/users?action=me&deviceId=${encodeURIComponent(getDeviceId())}`);
+  const email = getCurrentUser()?.email;
+  const identity = `deviceId=${encodeURIComponent(getDeviceId())}${email ? `&email=${encodeURIComponent(email)}` : ''}`;
+  const r = await fetch(`/api/users?action=me&${identity}`);
   const u = await r.json();
   if (u && !u.error) setCurrentUser(u);
   return u.balance || 0;
