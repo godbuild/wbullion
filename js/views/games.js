@@ -1,6 +1,7 @@
 import { navigate } from '../router.js';
-import { getCurrentUser } from '../auth.js';
+import { getCurrentUser, getDeviceId, setCurrentUser } from '../auth.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 export function renderGames() {
   const user = getCurrentUser();
@@ -13,7 +14,7 @@ export function renderGames() {
 
     <div class="wb-card" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;padding:16px;margin-bottom:20px;text-align:center;">
       <p style="font-size:12px;opacity:0.85;">Balance</p>
-      <p style="font-size:26px;font-weight:bold;">${money(user?.balance || 0)}</p>
+      <p data-games-balance style="font-size:26px;font-weight:bold;">${money(user?.balance || 0)}</p>
     </div>
 
     <p style="color:var(--text-secondary);font-size:13px;margin:-10px 0 16px;">Choose a game to start. Football players currently use numbered placeholders until names and images are added.</p>
@@ -54,6 +55,14 @@ export function renderGames() {
   `;
 
   document.getElementById('closeGames').onclick = () => navigate('/home');
+
+  apiFetch('/api/users?action=me').then(freshUser => {
+    if (freshUser?.id) {
+      setCurrentUser(freshUser);
+      const balanceEl = document.querySelector('[data-games-balance]');
+      if (balanceEl) balanceEl.textContent = money(freshUser.balance || 0);
+    }
+  }).catch(() => {});
 
   document.querySelectorAll('.gameCard').forEach(c => {
     c.onclick = () => {

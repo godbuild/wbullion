@@ -64,16 +64,23 @@ export function renderBetTTT() {
   });
 
   async function fetchOdds() {
-    const r = await fetch('/api/games?action=odds', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: getDeviceId(), game: 'bettictactoe' })
-    });
-    const d = await r.json();
-    currentOdds = d.odds;
-    _outcome = d.outcome;
-    document.getElementById('oddX').textContent = d.odds.X + 'x';
-    document.getElementById('oddO').textContent = d.odds.O + 'x';
-    document.getElementById('oddDraw').textContent = d.odds.draw + 'x';
+    try {
+      const d = await apiFetch('/api/games?action=odds', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId: getDeviceId(), game: 'bettictactoe' })
+      });
+      if (!d.odds || !Number.isFinite(Number(d.odds.X)) || !Number.isFinite(Number(d.odds.O)) || !Number.isFinite(Number(d.odds.draw))) {
+        throw new Error('Odds are unavailable');
+      }
+      currentOdds = d.odds;
+      _outcome = d.outcome;
+      document.getElementById('oddX').textContent = `${Number(d.odds.X).toFixed(1)}x`;
+      document.getElementById('oddO').textContent = `${Number(d.odds.O).toFixed(1)}x`;
+      document.getElementById('oddDraw').textContent = `${Number(d.odds.draw).toFixed(1)}x`;
+    } catch (err) {
+      currentOdds = null;
+      showAlert(err.message || 'Unable to load odds');
+    }
   }
 
   document.getElementById('refreshOddsBtn').onclick = () => {

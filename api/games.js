@@ -195,12 +195,19 @@ async function betTTT(req, res) {
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   if (!user.activated) return res.status(403).json({ error: 'Not activated' });
 
-  const { bet, choice, odds, outcome } = req.body || {};
+  const { bet, choice } = req.body || {};
   const b = Number(bet);
-  if (!b || b < 10) return res.status(400).json({ error: 'Minimum bet is NGN 10' });
+  if (!Number.isFinite(b) || b < 10) return res.status(400).json({ error: 'Minimum bet is NGN 10' });
   if (!['X', 'O', 'draw'].includes(choice)) return res.status(400).json({ error: 'Invalid choice' });
-  if (Number(user.balance || 0) < b) return res.status(400).json({ error: 'Insufficient balance' });
+  const balance = Number(user.balance || 0);
+  if (!Number.isFinite(balance) || balance < b) return res.status(400).json({ error: 'Insufficient balance' });
 
+  const x = Number((2 + Math.random() * 10).toFixed(1));
+  const o = Number((2 + Math.random() * 10).toFixed(1));
+  const draw = Number((2 + Math.random() * 10).toFixed(1));
+  const roll = Math.random();
+  const outcome = roll < 0.4 ? 'X' : roll < 0.6 ? 'draw' : 'O';
+  const odds = { X: x, O: o, draw };
   const sb = getAdminClient();
   const afterBet = Number(user.balance || 0) - b;
   await sb.from('users').update({ balance: afterBet, updated_at: new Date().toISOString() }).eq('id', user.id);
