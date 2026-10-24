@@ -22,7 +22,8 @@ export async function renderProfile(username) {
   }
 
   try {
-    const res = await fetch(`/api/users?action=profile&deviceId=${encodeURIComponent(deviceId)}&username=${encodeURIComponent(clean)}`);
+    const email = me?.email ? `&email=${encodeURIComponent(me.email)}` : '';
+    const res = await fetch(`/api/users?action=profile&deviceId=${encodeURIComponent(deviceId)}${email}&username=${encodeURIComponent(clean)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to load');
 
