@@ -51,7 +51,7 @@ export async function renderProfile(username) {
           </div>
           <h3 style="font-size:18px;font-weight:700;">
             ${user.full_name}
-            ${user.badge_awarded ? '<img src="/images/vbadge.png" alt="Verified" style="width:18px;height:18px;display:inline-block;vertical-align:middle;margin-left:4px;" onerror="this.style.display=\'none\'">' : ''}
+            ${user.badge_awarded ? '<i class="fas fa-check-circle" aria-label="Verified" title="Verified" style="color:#3b82f6;font-size:16px;display:inline-block;vertical-align:middle;margin-left:4px;"></i>' : ''}
           </h3>
           <p style="color:var(--text-secondary);font-size:14px;">${user.username}${user.isAdmin ? ' <span style="background:#3ba072;color:white;font-size:10px;padding:2px 6px;border-radius:8px;">Admin</span>' : ''}</p>
         </div>

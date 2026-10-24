@@ -16,7 +16,7 @@ export async function renderBadges() {
 
     <div class="wb-card" style="text-align:center;padding:30px;">
       ${data.hasBadge ? `
-        <img src="/images/vbadge.png" alt="Verified" style="width:80px;height:80px;" onerror="this.style.display='none'">
+        <i class="fas fa-check-circle" aria-label="Verified" style="font-size:80px;color:#3b82f6;"></i>
         <h3 style="font-size:18px;margin-top:12px;">W Bullion Verified</h3>
         <p style="color:var(--text-secondary);font-size:14px;margin-top:6px;">You are a verified member.</p>
       ` : `

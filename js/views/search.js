@@ -36,7 +36,7 @@ export async function renderSearch() {
         return;
       }
       results.innerHTML = list.map(u => {
-        const badge = u.badge_awarded || u.admin ? '<img src="/images/vbadge.png" alt="Verified" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-left:6px;" />' : '';
+        const badge = u.badge_awarded || u.admin ? '<i class="fas fa-check-circle" aria-label="Verified" title="Verified" style="color:#3b82f6;font-size:15px;display:inline-block;vertical-align:middle;margin-left:6px;"></i>' : '';
         const isMe = me && (me.username || '').toLowerCase() === (u.username || '').toLowerCase();
         const action = isMe ? '<span style="font-size:12px;color:var(--text-secondary);">You</span>' : (u.isFollowing ? '<span style="font-size:12px;color:var(--green);">Following</span>' : '<span style="font-size:12px;color:var(--text-secondary);">View</span>');
         return `
