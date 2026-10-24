@@ -1,4 +1,5 @@
 import { getDeviceId, setCurrentUser } from '../../auth.js';
+import { apiFetch } from '../../lib/api.js';
 
 let _config = null;
 
@@ -20,14 +21,12 @@ export async function refreshWallet() {
 export function getConfig() { return _config; }
 
 export async function submitShot({ takerId, portion, amount, outcome }) {
-  const r = await fetch('/api/games?action=football-shot', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+  const d = await apiFetch('/api/games?action=football-shot', {
+    method: 'POST',
     body: JSON.stringify({
       deviceId: getDeviceId(), takerId, portion, amount, outcome
     })
   });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'Shot submission failed');
   if (d.user) setCurrentUser(d.user);
   return d;
 }

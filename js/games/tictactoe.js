@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
 import { showToast } from '../modal.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 const COMPUTER_LOSS_PCT = 0.15;
 
@@ -83,15 +84,14 @@ async function handleUserMove(index) {
   await new Promise(r => setTimeout(r, 300));
 
   try {
-    const res = await fetch('/api/games?action=odds', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    const data = await apiFetch('/api/games?action=odds', {
+      method: 'POST',
       body: JSON.stringify({
         deviceId: getDeviceId(), game: 'tictactoe',
         board: _state.board, computer: _state.computerSymbol,
         difficulty: _state.difficulty
       })
     });
-    const data = await res.json();
     const idx = data.move;
     if (idx !== undefined && idx !== null) {
       _state.board[idx] = _state.computerSymbol;

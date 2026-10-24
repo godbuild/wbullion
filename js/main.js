@@ -87,8 +87,9 @@ registerRoute('/games/leveller', () => { if (requireAuth()) renderLeveller(); })
 registerRoute('/games/bet-tictactoe', () => { if (requireAuth()) renderBetTTT(); });
 registerRoute('/games/football', () => { if (requireAuth()) renderFootball(); });
 registerRoute('/profile', () => { if (requireAuth()) renderProfile(); });
-registerRoute('/profile/:username', ({ username }) => { if (requireAuth()) renderProfile(username); });
+// Register the static notifications route before the dynamic username route.
 registerRoute('/profile/notifications', () => { if (requireAuth()) renderNotifications(); });
+registerRoute('/profile/:username', ({ username }) => { if (requireAuth()) renderProfile(username); });
 registerRoute('/more', () => { if (requireAuth()) renderSettings(); });
 registerRoute('/settings', () => { if (requireAuth()) renderSettings(); });
 registerRoute('/hoep', () => { if (requireAuth()) renderHoep(); });

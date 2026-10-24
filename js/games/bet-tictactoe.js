@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
 import { showToast, showAlert } from '../modal.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 export function renderBetTTT() {
   const el = document.getElementById('viewContainer');
@@ -93,15 +94,18 @@ export function renderBetTTT() {
     if (!amount || amount < 10) return showAlert('Minimum bet is NGN 10');
 
     const betOdds = currentOdds[selected];
-    const r = await fetch('/api/games?action=bet-ttt', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        deviceId: getDeviceId(), bet: amount,
-        choice: selected, odds: betOdds, outcome: _outcome
-      })
-    });
-    const d = await r.json();
-    if (!r.ok) return showAlert(d.error);
+    let d;
+    try {
+      d = await apiFetch('/api/games?action=bet-ttt', {
+        method: 'POST',
+        body: JSON.stringify({
+          deviceId: getDeviceId(), bet: amount,
+          choice: selected, odds: betOdds, outcome: _outcome
+        })
+      });
+    } catch (err) {
+      return showAlert(err.message || 'Unable to place bet');
+    }
     if (d.user) setCurrentUser(d.user);
 
     const resultEl = document.getElementById('betTTTResult');
