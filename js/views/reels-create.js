@@ -103,7 +103,7 @@ export function renderReelsCreate() {
       const signRes = await fetch('/api/reels?action=sign-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: getDeviceId(), email: getCurrentUser()?.email })
+        body: JSON.stringify({ deviceId: getDeviceId(), email: getCurrentUser()?.email || undefined })
       });
       const sign = await signRes.json();
       if (!signRes.ok) throw new Error(sign.error || 'Sign failed');
@@ -128,6 +128,7 @@ export function renderReelsCreate() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deviceId: getDeviceId(),
+          email: getCurrentUser()?.email || undefined,
           caption: document.getElementById('reelCaption').value,
           description: document.getElementById('reelDesc').value,
           cloudinary: {
