@@ -19,7 +19,7 @@ export function updateNavbar() {
   const path = (typeof getCurrentPath === 'function' ? getCurrentPath() : window.location.pathname) || '/';
   const user = (typeof getCurrentUser === 'function' ? getCurrentUser() : null) || JSON.parse(localStorage.getItem('wb_currentUser') || 'null');
 
-  const shouldHide = !user || HIDE_ON.some(p => path === p || path.startsWith(p + '/'));
+  const shouldHide = !user || (path !== '/home' && HIDE_ON.some(p => path === p || path.startsWith(p + '/')));
 
   nav.classList.toggle('hidden', shouldHide);
 
