@@ -62,6 +62,14 @@ export async function renderFootball() {
     config.takers = generateFallbackTakers();
   }
 
+  config.takers = config.takers.map((taker, index) => ({
+    ...taker,
+    id: taker.id || `fallback-${index + 1}`,
+    name: taker.name || `Taker ${index + 1}`,
+    number: Number.isFinite(Number(taker.number)) ? Number(taker.number) : index + 1,
+    dominant_foot: String(taker.dominant_foot || 'R').toUpperCase() === 'L' ? 'L' : 'R',
+    jersey_color: /^#[0-9a-f]{6}$/i.test(String(taker.jersey_color || '')) ? taker.jersey_color : '#3ba072'
+  }));
   renderTakerSelect(config.takers, (taker) => startGame(config, taker));
 }
 
@@ -112,17 +120,24 @@ async function startGame(config, takerData) {
     goal = createGoalpost(scene, { logoTextureUrl: '/images/logo.png' });
     ball = createBall(scene, '/images/logo.png');
     keeper = createKeeper(scene);
+    const safeColor = /^#[0-9a-f]{6}$/i.test(String(takerData?.jersey_color || ''))
+      ? takerData.jersey_color
+      : '#3ba072';
     taker = createTaker(scene, {
-    name: takerData.name,
-    number: takerData.number,
-    dominantFoot: takerData.dominant_foot,
-    jerseyColor: takerData.jersey_color || '#3ba072'
+      name: takerData?.name || 'Taker',
+      number: Number.isFinite(Number(takerData?.number)) ? Number(takerData.number) : 9,
+      dominantFoot: String(takerData?.dominant_foot || 'R').toUpperCase() === 'L' ? 'L' : 'R',
+      jerseyColor: safeColor
     });
   } catch (err) {
-    console.error('[football] object creation error', err);
+    console.error('[football] object creation error', err?.stack || err);
     try { engine.stopRenderLoop(); engine.dispose(); } catch {}
-    showAlert('Football shootout could not start. Please choose another taker.', 'Error');
-    renderTakerSelect(config.takers, (takerData) => startGame(config, takerData));
+    el.innerHTML = `
+      <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+        <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">We could not load this taker. You can retry without losing your selection.</p><button id="footballRetry" class="wb-btn-primary">Retry taker</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
+      </div>`;
+    document.getElementById('footballRetry')?.addEventListener('click', () => startGame(config, takerData));
+    document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
     return;
   }
 
