@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     case 'stats':            return stats(req, res);
     case 'users-list':       return usersList(req, res);
     case 'users-single':     return usersSingle(req, res);
+    case 'balance-adjust':   return balanceAdjust(req, res);
     case 'ban':              return ban(req, res);
     case 'reset':            return reset(req, res);
     case 'reset-all':        return resetAll(req, res);
@@ -226,6 +227,49 @@ async function usersSingle(req, res) {
     return res.status(200).json({ success: true });
   }
   res.status(405).json({ error: 'Method not allowed' });
+}
+
+// ---------- balance adjustment ----------
+async function balanceAdjust(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { userId, operation, amount, description } = req.body || {};
+  const value = Number(amount);
+  if (!userId || !['credit', 'debit'].includes(operation) || !Number.isFinite(value) || value <= 0) {
+    return res.status(400).json({ error: 'User, operation, and a positive amount are required' });
+  }
+
+  const sb = getAdminClient();
+  const { data: user, error: userError } = await sb.from('users').select('id, balance, username').eq('id', userId).maybeSingle();
+  if (userError || !user) return res.status(404).json({ error: 'User not found' });
+
+  const currentBalance = Number(user.balance || 0);
+  if (operation === 'debit' && currentBalance < value) return res.status(400).json({ error: 'Insufficient balance' });
+  const nextBalance = operation === 'credit' ? currentBalance + value : currentBalance - value;
+  const { data: updated, error: updateError } = await sb.from('users').update({
+    balance: nextBalance,
+    updated_at: new Date().toISOString()
+  }).eq('id', userId).select('id, balance, username').single();
+  if (updateError || !updated) return res.status(500).json({ error: 'Balance update failed' });
+
+  const { error: transactionError } = await sb.from('transactions').insert({
+    user_id: userId,
+    type: operation,
+    amount: value,
+    description: description?.trim() || (operation === 'credit' ? 'Admin credit' : 'Admin debit')
+  });
+  if (transactionError) {
+    await sb.from('users').update({ balance: currentBalance, updated_at: new Date().toISOString() }).eq('id', userId);
+    return res.status(500).json({ error: 'Transaction could not be recorded' });
+  }
+
+  await sb.from('action_logs').insert({
+    user_id: userId,
+    action: operation === 'credit' ? 'admin_credit' : 'admin_debit',
+    meta: { amount: value, balance: nextBalance }
+  });
+  return res.status(200).json({ success: true, balance: nextBalance });
 }
 
 // ---------- ban ----------

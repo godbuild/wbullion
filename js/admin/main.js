@@ -383,7 +383,16 @@ window.viewUser = async (id) => {
       <h3>${u.full_name} <span class="muted">${u.username}</span></h3>
       <p><strong>Email:</strong> ${u.email}</p>
       <p><strong>Ref Code:</strong> ${u.unique_id}</p>
-      <p><strong>Balance:</strong> NGN ${Math.floor(u.balance).toLocaleString()}</p>
+      <p><strong>Balance:</strong> NGN <span id="detailBalance">${Math.floor(u.balance || 0).toLocaleString()}</span></p>
+      <div style="display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap;">
+        <input id="balanceAmount" type="number" min="1" step="1" placeholder="Amount" style="flex:1;min-width:110px;">
+        <select id="balanceOperation" style="padding:8px;border-radius:6px;border:1px solid var(--border);">
+          <option value="credit">Credit</option>
+          <option value="debit">Debit</option>
+        </select>
+        <input id="balanceDescription" type="text" placeholder="Reason (optional)" style="flex:1;min-width:150px;">
+        <button class="btn btn-primary" id="updateBalanceBtn">Update balance</button>
+      </div>
       <p><strong>Referral Earnings:</strong> NGN ${Math.floor(u.referral_earnings || 0).toLocaleString()}</p>
       <p><strong>Status:</strong> ${u.activated ? '✅ Activated' : '⏳ Not Activated'}${u.banned ? ' · 🚫 Banned' : ''}</p>
       <p><strong>Signed up:</strong> ${new Date(u.created_at).toLocaleString()}</p>
@@ -398,6 +407,26 @@ window.viewUser = async (id) => {
   modal.className = 'modal-backdrop';
   modal.innerHTML = `<div class="modal-box"><div class="modal-head"><h3>User Details</h3><button class="close-btn"><i class="fas fa-close"></i></button></div>${html}</div>`;
   modal.querySelector('.close-btn').onclick = () => modal.remove();
+  modal.querySelector('#updateBalanceBtn').onclick = async () => {
+    const amount = Number(modal.querySelector('#balanceAmount').value);
+    const operation = modal.querySelector('#balanceOperation').value;
+    const description = modal.querySelector('#balanceDescription').value.trim();
+    if (!Number.isFinite(amount) || amount <= 0) return toast('Enter a positive amount');
+    const button = modal.querySelector('#updateBalanceBtn');
+    button.disabled = true;
+    const r = await adminFetch(`${API}/admin?action=balance-adjust`, {
+      method: 'POST',
+      body: JSON.stringify({ userId: id, operation, amount, description })
+    });
+    const d = await r.json();
+    button.disabled = false;
+    if (!r.ok) return toast(d.error || 'Balance update failed');
+    modal.querySelector('#detailBalance').textContent = Math.floor(d.balance).toLocaleString();
+    modal.querySelector('#balanceAmount').value = '';
+    modal.querySelector('#balanceDescription').value = '';
+    toast(`${operation === 'credit' ? 'Credit' : 'Debit'} applied`);
+    loadUsers(document.getElementById('userSearch').value);
+  };
   document.body.appendChild(modal);
 };
 
