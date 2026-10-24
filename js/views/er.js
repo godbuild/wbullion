@@ -1,6 +1,6 @@
 import { navigate } from '../router.js';
-import { getDeviceId } from '../auth.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 const LABELS = [
   { key: 'all', label: 'All' },
@@ -16,9 +16,13 @@ export async function renderER(label = 'all') {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  const deviceId = getDeviceId();
-  const res = await fetch(`/api/users?action=er&deviceId=${encodeURIComponent(deviceId)}&label=${label}`);
-  const data = await res.json();
+  let data;
+  try {
+    data = await apiFetch(`/api/users?action=er&label=${encodeURIComponent(label)}`);
+  } catch (error) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary);">${error.message || 'Unable to load earning records'}</div>`;
+    return;
+  }
 
   const summary = data.summary || {};
   const active = label === 'all'
