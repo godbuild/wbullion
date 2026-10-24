@@ -122,6 +122,21 @@ async function initBabylon(isDark) {
   }
 }
 
+function updateKiteMotion() {
+  if (!_state.kite || !window.BABYLON) return;
+  const t = performance.now() / 1000;
+  const baseY = _state.running ? 1.5 + Math.min(_state.currentOdds - 1, 3) * 0.7 : 1.5;
+  _state.kite.position.y = baseY + Math.sin(t * 2.2) * 0.12;
+  _state.kite.position.x = Math.sin(t * 0.8) * 1.8;
+  _state.kite.rotation.z = Math.sin(t * 1.7) * 0.12;
+  if (_state.tail) {
+    _state.tail.position.x = _state.kite.position.x;
+    _state.tail.position.y = _state.kite.position.y - 1.1;
+    _state.tail.position.z = _state.kite.position.z;
+    _state.tail.rotation.z = _state.kite.rotation.z;
+  }
+}
+
 function createKite(scene) {
   const root = new BABYLON.TransformNode('kiteRoot', scene);
   const kiteMat = new BABYLON.StandardMaterial('kiteMat', scene);
