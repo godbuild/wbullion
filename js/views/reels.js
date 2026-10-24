@@ -281,7 +281,9 @@ async function toggleDislike(btn) {
 async function deleteReel(id) {
   const ok = await showConfirm('Delete this reel permanently?', 'Delete Reel');
   if (!ok) return;
-  const res = await fetch(`/api/reels?action=single&id=${id}&deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'DELETE' });
+  const email = getCurrentUser()?.email;
+  const identity = `deviceId=${encodeURIComponent(getDeviceId())}${email ? `&email=${encodeURIComponent(email)}` : ''}`;
+  const res = await fetch(`/api/reels?action=single&id=${id}&${identity}`, { method: 'DELETE' });
   const data = await res.json();
   if (!res.ok) return showToast(data.error || 'Error');
   showToast('Reel deleted');

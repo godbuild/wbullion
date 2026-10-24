@@ -1,6 +1,7 @@
 import { navigate } from '../router.js';
 import { getCurrentUser, getDeviceId, setCurrentUser } from '../auth.js';
 import { showToast, showAlert, showConfirm } from '../modal.js';
+import { apiFetch } from '../lib/api.js';
 import { money, compact } from '../format.js';
 
 export async function renderProfile(username) {
@@ -139,7 +140,11 @@ export async function renderProfile(username) {
       e.stopPropagation();
       const ok = await showConfirm('Delete this reel?', 'Delete');
       if (!ok) return;
-      await fetch(`/api/reels?action=single&id=${b.dataset.id}&deviceId=${encodeURIComponent(deviceId)}`, { method: 'DELETE' });
+      const deleteEmail = me?.email;
+      const deleteIdentity = `deviceId=${encodeURIComponent(deviceId)}${deleteEmail ? `&email=${encodeURIComponent(deleteEmail)}` : ''}`;
+      const deleteResponse = await fetch(`/api/reels?action=single&id=${b.dataset.id}&${deleteIdentity}`, { method: 'DELETE' });
+      const deleteResult = await deleteResponse.json().catch(() => ({}));
+      if (!deleteResponse.ok) return showAlert(deleteResult.error || 'Unable to delete reel', 'Error');
       showToast('Deleted');
       renderProfile(user.username);
     });
@@ -181,26 +186,29 @@ function showEditModal(user) {
     const email = document.getElementById('edEmail').value.trim();
     const bio = document.getElementById('edBio').value.trim();
 
-    const r1 = await fetch('/api/users?action=update-me', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId, fullName: name, username: uname, email, bio })
-    });
-    const d1 = await r1.json();
-    if (!r1.ok) return showAlert(d1.error, 'Error');
+    let d1;
+    try {
+      d1 = await apiFetch('/api/users?action=update-me', {
+        method: 'PUT',
+        body: JSON.stringify({ deviceId, fullName: name, username: uname, email, bio })
+      });
+    } catch (error) {
+      return showAlert(error.message || 'Unable to save profile', 'Error');
+    }
     setCurrentUser(d1.user);
 
     const cp = document.getElementById('edCurrent').value;
     const np = document.getElementById('edNew').value;
     const cf = document.getElementById('edConfirm').value;
     if (cp || np || cf) {
-      const r2 = await fetch('/api/users?action=change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, currentPassword: cp, newPassword: np, confirmPassword: cf })
-      });
-      const d2 = await r2.json();
-      if (!r2.ok) return showAlert(d2.error, 'Password Error');
+      try {
+        await apiFetch('/api/users?action=change-password', {
+          method: 'POST',
+          body: JSON.stringify({ deviceId, currentPassword: cp, newPassword: np, confirmPassword: cf })
+        });
+      } catch (error) {
+        return showAlert(error.message || 'Unable to update password', 'Password Error');
+      }
       showToast('Password updated');
     }
 
