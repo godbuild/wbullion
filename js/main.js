@@ -91,7 +91,7 @@ registerRoute('/profile', () => { if (requireAuth()) renderProfile(); });
 registerRoute('/search', () => { if (requireAuth()) renderSearch(); });
 // Register the static notifications route before the dynamic username route.
 registerRoute('/profile/notifications', () => { if (requireAuth()) renderNotifications(); });
-registerRoute('/profile/:username', ({ username }) => { if (requireAuth()) renderProfile(username); });
+registerRoute('/profile/:username', ({ username }) => { renderProfile(username); });
 registerRoute('/more', () => { if (requireAuth()) renderSettings(); });
 registerRoute('/settings', () => { if (requireAuth()) renderSettings(); });
 registerRoute('/hoep', () => { if (requireAuth()) renderHoep(); });
@@ -109,7 +109,11 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
 }
 
-onRouteChange(() => { updateNavbar(); window.scrollTo(0, 0); });
+onRouteChange((path) => {
+  updateNavbar();
+  window.scrollTo(0, 0);
+  if (!path.startsWith('/reels')) document.documentElement.removeAttribute('data-reels-theme');
+});
 
 // ---------- Boot ----------
 (async () => {

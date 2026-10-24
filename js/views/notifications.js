@@ -53,10 +53,13 @@ export async function renderNotifications(category = 'all') {
       <div id="notifList" style="display:flex;flex-direction:column;gap:8px;">
         ${list.length === 0 ? '<p style="text-align:center;color:var(--text-secondary);padding:40px;">No notifications</p>' :
           list.map(n => `
-            <div class="wb-card" data-id="${n.id}" style="padding:14px;cursor:pointer;background:${n.read ? 'var(--bg-primary)' : 'linear-gradient(135deg,#e1fedb,var(--bg-primary))'};">
-              <p style="font-weight:600;font-size:14px;">${n.title || ''}</p>
-              <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${n.body || ''}</p>
-              <p style="font-size:11px;color:var(--text-secondary);margin-top:8px;">${new Date(n.created_at).toLocaleString()}</p>
+            <div class="wb-card" data-id="${n.id}" style="padding:14px;background:${n.read ? 'var(--bg-primary)' : 'linear-gradient(135deg,#e1fedb,var(--bg-primary))'};">
+              <p style="font-weight:600;font-size:14px;">${escapeHtml(n.title || 'Notification')}</p>
+              <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${escapeHtml(shortNotification(n.body || ''))}</p>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                <span style="font-size:11px;color:var(--text-secondary);">${new Date(n.created_at).toLocaleString()}</span>
+                <button class="readMore" data-id="${n.id}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">Read more</button>
+              </div>
             </div>
           `).join('')}
       </div>
@@ -84,16 +87,17 @@ export async function renderNotifications(category = 'all') {
     };
 
     // Attach click handlers to each notification entry
-    document.querySelectorAll('#notifList [data-id]').forEach(el2 => {
-      el2.onclick = async () => {
+    document.querySelectorAll('.readMore').forEach(button => {
+      button.onclick = async () => {
+        const notification = list.find(item => String(item.id) === String(button.dataset.id));
+        if (!notification) return;
         try {
           await apiFetch('/api/notifications?action=read', {
             method: 'POST',
-            body: JSON.stringify({ deviceId: getDeviceId(), id: el2.dataset.id })
+            body: JSON.stringify({ deviceId: getDeviceId(), id: notification.id })
           });
-          el2.style.background = 'var(--bg-primary)';
-          // If all are read (or you want to clear pulse), hide notifDot
           document.querySelectorAll('.notifDot').forEach(n => n.style.display = 'none');
+          showNotificationDetail(notification);
         } catch (err) {
           showAlert(err.message || 'Failed to mark notification', 'Error');
         }
@@ -103,4 +107,30 @@ export async function renderNotifications(category = 'all') {
     // apiFetch already shows modal for 401; show generic failed UI otherwise
     el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary);">${err?.message || 'Failed to load'}</div>`;
   }
+}
+
+function shortNotification(text) {
+  const clean = String(text).replace(/\s+/g, ' ').trim();
+  return clean.length > 100 ? `${clean.slice(0, 100)}…` : clean;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function showNotificationDetail(notification) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="notificationDetailTitle">
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:start;">
+      <h3 id="notificationDetailTitle">${escapeHtml(notification.title || 'Notification')}</h3>
+      <button class="wb-close" aria-label="Close notification"><i class="fas fa-close"></i></button>
+    </div>
+    <p style="white-space:pre-wrap;">${escapeHtml(notification.body || 'No additional details.')}</p>
+    <p style="font-size:12px;color:var(--text-secondary);">${new Date(notification.created_at).toLocaleString()}</p>
+  </div>`;
+  document.body.appendChild(backdrop);
+  const close = () => backdrop.remove();
+  backdrop.querySelector('.wb-close').onclick = close;
+  backdrop.onclick = event => { if (event.target === backdrop) close(); };
 }
