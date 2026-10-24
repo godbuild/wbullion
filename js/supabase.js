@@ -10,6 +10,11 @@ export async function getSupabase() {
     console.warn('Supabase credentials missing. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in Vercel.');
     return null;
   }
-  _client = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
-  return _client;
+  try {
+    _client = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey);
+    return _client;
+  } catch (err) {
+    console.error('[supabase] Failed to initialise client:', err);
+    return null;
+  }
 }
