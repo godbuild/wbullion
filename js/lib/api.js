@@ -21,12 +21,17 @@ export async function apiFetch(url, opts = {}) {
     url = `${url}${sep}deviceId=${encodeURIComponent(getDeviceId())}`;
   }
 
+  const suppressAuthRedirect = opts.suppressAuthRedirect === true;
+  if (suppressAuthRedirect) delete opts.suppressAuthRedirect;
+
   const res = await fetch(url, opts);
 
   if (res.status === 401) {
-    try { await logout(); } catch (e) {}
-    try { showAlert('Session expired. Please log in again.', 'Authentication'); } catch (e) {}
-    try { navigate('/login', { replace: true }); } catch (e) {}
+    if (!suppressAuthRedirect) {
+      try { await logout(); } catch (e) {}
+      try { showAlert('Session expired. Please log in again.', 'Authentication'); } catch (e) {}
+      try { navigate('/login', { replace: true }); } catch (e) {}
+    }
     throw new Error('Not authenticated');
   }
 
