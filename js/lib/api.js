@@ -16,9 +16,11 @@ export async function apiFetch(url, opts = {}) {
   }
 
   // Add deviceId to GET URLs if not present
-  if (method === 'GET' && !/deviceId=/.test(url)) {
-    const sep = url.includes('?') ? '&' : '?';
-    url = `${url}${sep}deviceId=${encodeURIComponent(getDeviceId())}`;
+  if (method === 'GET') {
+    const params = new URLSearchParams();
+    if (!/[?&]deviceId=/.test(url)) params.set('deviceId', getDeviceId());
+    if (currentUser?.email && !/[?&](email|identifier)=/.test(url)) params.set('email', currentUser.email);
+    if (params.toString()) url += `${url.includes('?') ? '&' : '?'}${params}`;
   }
 
   const suppressAuthRedirect = opts.suppressAuthRedirect === true;

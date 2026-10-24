@@ -1,5 +1,6 @@
 import { navigate } from '../router.js';
 import { getCurrentUser, getDeviceId, setCurrentUser } from '../auth.js';
+import { apiFetch } from '../lib/api.js';
 import { showToast, showAlert } from '../modal.js';
 
 const PERCENTAGES = [5, 10, 15, 20, 25, 30];
@@ -56,9 +57,8 @@ export function renderHoep() {
 
   document.getElementById('hoepToggle').onchange = async (e) => {
     const enabled = e.target.checked;
-    const r = await fetch('/api/users?action=hoep', {
+    const r = await apiFetch('/api/users?action=hoep', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId: getDeviceId(), enabled })
     });
     const d = await r.json();
@@ -79,9 +79,8 @@ export function renderHoep() {
   document.querySelectorAll('.pctBtn').forEach(btn => {
     btn.onclick = async () => {
       const pct = Number(btn.dataset.pct);
-      const r = await fetch('/api/users?action=hoep', {
+      const r = await apiFetch('/api/users?action=hoep', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId: getDeviceId(), percentage: pct })
       });
       const d = await r.json();
