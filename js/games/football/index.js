@@ -28,7 +28,10 @@ function generateFallbackTakers() {
 
 export async function renderFootball() {
   const el = document.getElementById('viewContainer');
+  document.body.classList.add('football-active');
+  el.classList.add('full-bleed-view');
   el.style.padding = '0';
+  el.style.minHeight = '100dvh';
   el.innerHTML = `
     <div style="background:var(--purple);min-height:100dvh;display:flex;align-items:center;justify-content:center;color:white;">
       <div style="text-align:center;">
@@ -67,7 +70,7 @@ async function startGame(config, takerData) {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
   el.innerHTML = `
-    <div style="position:fixed;inset:0;background:#000;overflow:hidden;">
+    <div class="football-stage" style="position:fixed;inset:0;background:#000;overflow:hidden;">
       <canvas id="fbCanvas" style="width:100%;height:100%;display:block;touch-action:none;"></canvas>
       <div id="fbOverlay"></div>
     </div>
