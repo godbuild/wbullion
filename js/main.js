@@ -123,8 +123,12 @@ onRouteChange(() => { updateNavbar(); window.scrollTo(0, 0); });
     return;
   }
 
-  await configPromise;
-  await supabasePromise;
+  try {
+    await configPromise;
+    await supabasePromise;
+  } catch (err) {
+    console.error('[startup] Service initialisation failed:', err);
+  }
 
   document.getElementById('viewContainer').classList.remove('hidden');
 

@@ -5,13 +5,17 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function checkNigeria() {
   // Vercel injects this header automatically once deployed.
   // Locally it's absent — we default to allowing through in dev.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const res = await fetch('/api/env'); // any request to Vercel carries the header
+    const res = await fetch('/api/env', { signal: controller.signal }); // any request to Vercel carries the header
     const country = res.headers.get('x-vercel-ip-country');
     if (!country) return true; // dev / preview → allow
     return country === 'NG';
   } catch {
     return true;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
