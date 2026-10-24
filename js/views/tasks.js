@@ -2,6 +2,7 @@ import { navigate } from '../router.js';
 import { getDeviceId } from '../auth.js';
 import { showToast, showAlert } from '../modal.js';
 import { money } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 export async function renderTasks() {
   const el = document.getElementById('viewContainer');
@@ -109,9 +110,8 @@ function showCreateTask() {
 
   modal.querySelector('#cancelTask').onclick = () => modal.remove();
   modal.querySelector('#saveTask').onclick = async () => {
-    const r = await fetch('/api/tasks?action=create', {
+    const r = await apiFetch('/api/tasks?action=create', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         deviceId: getDeviceId(),
         title: document.getElementById('tTitle').value,
@@ -122,8 +122,6 @@ function showCreateTask() {
         payPerClick: Number(document.getElementById('tCPC').value) || 0
       })
     });
-    const d = await r.json();
-    if (!r.ok) return showAlert(d.error, 'Error');
     showToast('Task created! +NGN 500');
     modal.remove();
     renderTasks();

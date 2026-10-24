@@ -6,6 +6,7 @@ export default async function handler(req, res) {
   switch (action) {
     case 'list':         return listNotifications(req, res);
     case 'read':         return readNotifications(req, res);
+    case 'delete':       return deleteNotification(req, res);
     case 'badges-list':  return listBadges(req, res);
     case 'badges-claim': return claimBadge(req, res);
     default: return res.status(400).json({ error: 'Unknown notifications action' });
@@ -41,6 +42,18 @@ async function readNotifications(req, res) {
   else if (category) await sb.from('notifications').update({ read: true }).eq('user_id', user.id).eq('category', category);
   else if (id) await sb.from('notifications').update({ read: true }).eq('id', id).eq('user_id', user.id);
   res.status(200).json({ success: true });
+}
+
+async function deleteNotification(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const user = await resolveUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const { id } = req.body || {};
+  if (!id) return res.status(400).json({ error: 'Notification id required' });
+  const sb = getAdminClient();
+  const { error } = await sb.from('notifications').delete().eq('id', id).eq('user_id', user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ success: true });
 }
 
 async function listBadges(req, res) {
