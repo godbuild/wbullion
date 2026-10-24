@@ -66,6 +66,7 @@ export function renderHoep() {
       e.target.checked = !enabled;
       return showAlert(d.error, 'Error');
     }
+    // Keep the server response locally so HOEP remains enabled after navigation.
     setCurrentUser(d.user);
     showToast(enabled ? 'HOEP enabled' : 'HOEP disabled');
     renderHoep();

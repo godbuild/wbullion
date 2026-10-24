@@ -5,6 +5,7 @@ import { money, compact } from '../format.js';
 import { apiFetch } from '../lib/api.js';
 
 let _pullActive = false;
+let _homeRequest = 0;
 
 export function renderHome() {
   const user = getCurrentUser();
@@ -69,12 +70,12 @@ export function renderHome() {
 
     <div class="wb-card" style="margin-top:16px;">
       <p style="font-weight:600;margin-bottom:12px;">Suggested People To Follow</p>
-      <p style="font-size:16px;color:var(--text-secondary);">No Suggested People To Follow for now.</p>
+      <div id="suggestedPeople"><p style="font-size:14px;color:var(--text-secondary);">Loading suggestions...</p></div>
     </div>
 
     <div style="margin-top:26px;">
       <p style="font-weight:600;margin-bottom:12px;"><u>Tasks</u></p>
-      <p style="font-size:16px;color:var(--text-secondary);">No Tasks to show for now</p>
+      <div id="homeTasks"><p style="font-size:14px;color:var(--text-secondary);">Loading tasks...</p></div>
     </div>
 
     <div id="pullIndicator" style="display:none;text-align:center;padding:20px;">
@@ -104,6 +105,40 @@ export function renderHome() {
   });
 
   setupPullToRefresh();
+  loadHomeSections();
+}
+
+async function loadHomeSections() {
+  const requestId = ++_homeRequest;
+  const deviceId = getDeviceId();
+  try {
+    const [suggestions, tasks] = await Promise.all([
+      apiFetch('/api/users?action=sptf'),
+      apiFetch('/api/tasks?action=list')
+    ]);
+    if (requestId !== _homeRequest) return;
+    const people = suggestions.users || [];
+    const peopleEl = document.getElementById('suggestedPeople');
+    if (peopleEl) peopleEl.innerHTML = people.length ? people.slice(0, 4).map(person => `
+      <button class="wb-card suggested-person" data-username="${person.username}" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:8px;background:var(--bg-primary);border:1px solid var(--border-color);cursor:pointer;text-align:left;">
+        <span style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#dbfedd;font-weight:700;color:#1f2937;">${(person.username || 'U')[1]?.toUpperCase() || 'U'}</span>
+        <span><strong>${person.full_name || person.username}</strong><small style="display:block;color:var(--text-secondary);">${person.username}${person.badge_awarded ? ' ✓' : ''}</small></span>
+      </button>`).join('') : '<p style="font-size:14px;color:var(--text-secondary);">No Suggested People To Follow for now.</p>';
+    document.querySelectorAll('.suggested-person').forEach(btn => btn.onclick = () => navigate(`/profile/${encodeURIComponent(btn.dataset.username)}`));
+
+    const taskEl = document.getElementById('homeTasks');
+    const available = tasks.tasks || [];
+    if (taskEl) taskEl.innerHTML = available.length ? available.slice(0, 3).map(task => `
+      <button class="wb-card home-task" data-task-id="${task.id}" style="display:block;width:100%;padding:12px;margin-bottom:8px;background:var(--bg-primary);border:1px solid var(--border-color);cursor:pointer;text-align:left;">
+        <strong>${task.title}</strong><small style="display:block;color:var(--text-secondary);margin-top:4px;">Earn ${money(task.reward_click || 150)}</small>
+      </button>`).join('') : '<p style="font-size:14px;color:var(--text-secondary);">No Tasks to show for now.</p>';
+    document.querySelectorAll('.home-task').forEach(btn => btn.onclick = () => navigate('/home/tasks'));
+  } catch (err) {
+    const peopleEl = document.getElementById('suggestedPeople');
+    const taskEl = document.getElementById('homeTasks');
+    if (peopleEl) peopleEl.innerHTML = '<p style="font-size:14px;color:var(--text-secondary);">Suggestions unavailable right now.</p>';
+    if (taskEl) taskEl.innerHTML = '<p style="font-size:14px;color:var(--text-secondary);">Tasks unavailable right now.</p>';
+  }
 }
 
 async function handleClaimBonus() {
@@ -138,14 +173,14 @@ function setupPullToRefresh() {
   let startY = 0;
   el.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true });
   el.addEventListener('touchmove', (e) => {
-    // Check container scrollTop rather than window.scrollY so we allow inner scrolling
-    if (el.scrollTop > 0) return;
+    // The app scrolls with the document, so checking only the main element misses the gesture.
+    if (window.scrollY > 0 || el.scrollTop > 0) return;
     const dy = e.touches[0].clientY - startY;
-    if (dy > 80 && !_pullActive) {
+    if (dy > 70 && !_pullActive) {
       _pullActive = true;
       const ind = document.getElementById('pullIndicator');
       if (ind) ind.style.display = 'block';
-      setTimeout(() => { _pullActive = false; renderHome(); }, 1200);
+      setTimeout(() => { _pullActive = false; renderHome(); window.scrollTo(0, 0); }, 700);
     }
   }, { passive: true });
 }
