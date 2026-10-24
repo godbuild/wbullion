@@ -8,7 +8,12 @@ export async function renderReferral() {
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
   const res = await fetch(`/api/users?action=referral-info&deviceId=${encodeURIComponent(getDeviceId())}`);
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    el.innerHTML = `<div class="wb-card" style="text-align:center;padding:32px 20px;"><i class="fas fa-link" style="font-size:36px;color:var(--green);"></i><h2 style="margin-top:12px;">Referrals unavailable</h2><p style="color:var(--text-secondary);margin:8px 0 18px;">${data.error || 'Please try again.'}</p><button id="closeRef" class="wb-btn-primary">Back</button></div>`;
+    document.getElementById('closeRef').onclick = () => navigate('/settings');
+    return;
+  }
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
