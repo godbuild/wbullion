@@ -58,7 +58,10 @@ export async function renderNotifications(category = 'all') {
               <p style="font-size:13px;color:var(--text-secondary);margin-top:4px;">${escapeHtml(shortNotification(n.body || ''))}</p>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
                 <span style="font-size:11px;color:var(--text-secondary);">${new Date(n.created_at).toLocaleString()}</span>
-                <button class="readMore" data-id="${n.id}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">Read more</button>
+                <div style="display:flex;gap:12px;align-items:center;">
+                  <button class="readMore" data-id="${n.id}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">Read more</button>
+                  <button class="deleteNotification" data-id="${n.id}" aria-label="Delete notification" style="border:0;background:none;color:#ef4444;font-weight:700;cursor:pointer;">Delete</button>
+                </div>
               </div>
             </div>
           `).join('')}
@@ -85,6 +88,21 @@ export async function renderNotifications(category = 'all') {
         showAlert(err.message || 'Failed to mark as read', 'Error');
       }
     };
+
+    document.querySelectorAll('.deleteNotification').forEach(button => {
+      button.onclick = async () => {
+        try {
+          await apiFetch('/api/notifications?action=delete', {
+            method: 'POST',
+            body: JSON.stringify({ deviceId: getDeviceId(), id: button.dataset.id })
+          });
+          showToast('Notification deleted');
+          renderNotifications(category);
+        } catch (err) {
+          showAlert(err.message || 'Failed to delete notification', 'Error');
+        }
+      };
+    });
 
     // Attach click handlers to each notification entry
     document.querySelectorAll('.readMore').forEach(button => {

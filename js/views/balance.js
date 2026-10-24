@@ -1,5 +1,6 @@
 import { getDeviceId } from '../auth.js';
 import { money, comma } from '../format.js';
+import { apiFetch } from '../lib/api.js';
 
 export async function renderBalance(type = 'all') {
   const el = document.getElementById('viewContainer');
@@ -8,10 +9,13 @@ export async function renderBalance(type = 'all') {
   const deviceId = getDeviceId();
   let txs = [];
   try {
-    const res = await fetch(`/api/users?action=transactions&deviceId=${encodeURIComponent(deviceId)}&type=${type === 'all' ? '' : type}`);
-    const data = await res.json();
+    const params = new URLSearchParams({ action: 'transactions', type: type === 'all' ? '' : type });
+    const data = await apiFetch(`/api/users?${params.toString()}`);
     txs = data.transactions || [];
-  } catch {}
+  } catch (error) {
+    el.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-secondary);">${error.message || 'Unable to load balance history'}</div>`;
+    return;
+  }
 
   const credits = txs.filter(t => t.type === 'credit');
   const debits = txs.filter(t => t.type === 'debit');
