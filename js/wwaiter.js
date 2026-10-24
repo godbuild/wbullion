@@ -7,6 +7,14 @@ let _container = null;
 let _items = [];
 let _visible = false;
 
+// Keep a reference to the browser clipboard method before the global capture hook runs.
+const nativeClipboardWrite = navigator.clipboard?.writeText?.bind(navigator.clipboard);
+
+export async function copyToClipboard(text) {
+  if (!nativeClipboardWrite) throw new Error('Clipboard access is unavailable');
+  return nativeClipboardWrite(String(text));
+}
+
 function isMobile() {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
@@ -163,7 +171,11 @@ function renderPanel() {
     btn.onclick = async () => {
       const idx = Number(btn.dataset.idx);
       const item = _items[idx];
-      try { await navigator.clipboard.writeText(item.text); } catch {}
+      try {
+        await copyToClipboard(item.text);
+      } catch {
+        return;
+      }
       _items.splice(idx, 1);
       save();
       render();
