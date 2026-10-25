@@ -173,10 +173,13 @@ async function startGame(config, takerData) {
   // Odds: use apiFetch to centralize auth/error handling
   let oddsData = {};
   try {
-    oddsData = await apiFetch('/api/games?action=odds', {
-      method: 'POST',
-      body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' })
-    });
+    oddsData = await Promise.race([
+      apiFetch('/api/games?action=odds', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' })
+      }),
+      new Promise((_, reject) => window.setTimeout(() => reject(new Error('Odds request timed out')), 5000))
+    ]);
   } catch (err) {
     // fallback random portions
     oddsData = { portions: Array.from({ length: 9 }, () => Math.floor(Math.random() * 61) + 120) };
