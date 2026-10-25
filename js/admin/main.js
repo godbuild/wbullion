@@ -495,18 +495,54 @@ async function showBanModal() {
 }
 
 // ============ Gallery ============
+let galleryImages = [];
+let galleryIndex = 0;
+
+window.openGallery = (index) => {
+  if (!galleryImages.length) return;
+  galleryIndex = index;
+  const modal = document.getElementById('galleryModal');
+  modal.classList.remove('hidden');
+  renderGalleryImage();
+};
+
+window.closeGallery = () => {
+  document.getElementById('galleryModal').classList.add('hidden');
+  document.getElementById('galleryModalImage').src = '';
+};
+
+window.changeGalleryImage = (direction) => {
+  if (!galleryImages.length) return;
+  galleryIndex = (galleryIndex + direction + galleryImages.length) % galleryImages.length;
+  renderGalleryImage();
+};
+
+document.addEventListener('keydown', (event) => {
+  if (document.getElementById('galleryModal')?.classList.contains('hidden')) return;
+  if (event.key === 'ArrowLeft') changeGalleryImage(-1);
+  if (event.key === 'ArrowRight') changeGalleryImage(1);
+  if (event.key === 'Escape') closeGallery();
+});
+
+function renderGalleryImage() {
+  const image = galleryImages[galleryIndex];
+  document.getElementById('galleryModalImage').src = image.src;
+  document.getElementById('galleryModalImage').alt = image.label;
+  document.getElementById('galleryModalCaption').textContent = `${image.label} · ${galleryIndex + 1} of ${galleryImages.length}`;
+}
+
 async function loadGallery() {
   const el = document.getElementById('galleryGrid');
   try {
     const r = await adminFetch(`${API}/admin?action=payments-list&status=all`);
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Unable to load gallery');
-    const images = (d.payments || []).flatMap(p => [
+    galleryImages = (d.payments || []).flatMap(p => [
       p.sms_screenshot ? { src: p.sms_screenshot, label: `SMS alert · ${p.email || 'Unknown'}` } : null,
       p.receipt_screenshot ? { src: p.receipt_screenshot, label: `Receipt · ${p.email || 'Unknown'}` } : null
     ]).filter(Boolean);
-    el.innerHTML = images.length ? images.map(image => `
-      <button class="gallery-item" type="button" title="${image.label.replace(/"/g, '&quot;')}" onclick="viewScreens('${image.src.replace(/'/g, '%27')}', '')">
+    el.innerHTML = galleryImages.length ? galleryImages.map((image, index) => `
+      <button class="gallery-item" type="button" title="${image.label.replace(/"/g, '&quot;')}" onclick="openGallery(${index})">
         <img src="${image.src}" alt="${image.label.replace(/"/g, '&quot;')}" loading="lazy">
       </button>`).join('') : '<p class="muted">No receipt images available</p>';
   } catch (error) {
