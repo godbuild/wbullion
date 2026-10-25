@@ -44,16 +44,16 @@ export function renderHome() {
     ` : ''}
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-      <div id="goGames" style="background:#dbfedc;color:#1f2937;padding:20px;border-radius:16px;cursor:pointer;">
-        <div style="font-size:32px;margin-bottom:8px;"><i class="fas fa-gamepad"></i></div>
-        <p style="font-weight:600;">Play Games</p>
-        <p style="font-size:12px;color:#6b8070;">Earn NGN per win</p>
-      </div>
-      <div id="goReels" style="background:#d8cfff;color:#1f2937;padding:20px;border-radius:16px;cursor:pointer;">
-        <div style="font-size:32px;margin-bottom:8px;"><i class="fas fa-video"></i></div>
-        <p style="font-weight:600;">Watch Reels</p>
-        <p style="font-size:12px;color:#6b8070;">Watch Videos Here</p>
-      </div>
+      <button id="goGames" type="button" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;padding:20px;border-radius:16px;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);text-align:left;">
+        <span style="display:block;font-size:32px;margin-bottom:8px;"><i class="fas fa-gamepad"></i></span>
+        <span style="display:block;font-weight:600;">Play Games</span>
+        <span style="display:block;font-size:12px;color:#475569;margin-top:4px;">Earn NGN per win</span>
+      </button>
+      <button id="goReels" type="button" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;padding:20px;border-radius:16px;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);text-align:left;">
+        <span style="display:block;font-size:32px;margin-bottom:8px;"><i class="fas fa-video"></i></span>
+        <span style="display:block;font-weight:600;">Watch Reels</span>
+        <span style="display:block;font-size:12px;color:#475569;margin-top:4px;">Watch Videos Here</span>
+      </button>
     </div>
 
     <button id="tgBtn" style="width:100%;color:white;padding:16px;border-radius:16px;font-weight:600;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;background:${user?.telegram_bonus_claimed ? '#6b8070' : 'linear-gradient(135deg,#0088cc,#006699)'};" ${user?.telegram_bonus_claimed ? 'disabled' : ''}>
