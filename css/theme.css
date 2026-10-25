@@ -47,6 +47,25 @@ html[data-theme="dark"] #viewContainer .gameCard p {
   color: #1f2937;
 }
 
+html[data-theme="dark"] #viewContainer > div > .wb-card,
+html[data-theme="dark"] #viewContainer > button.wb-card,
+html[data-theme="dark"] #viewContainer > div > button.wb-card,
+html[data-theme="dark"] #viewContainer #visibilityPanel,
+html[data-theme="dark"] #viewContainer #visibilityPanel span,
+html[data-theme="dark"] #viewContainer #visibilityPanel p {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] #viewContainer #themeBtn,
+html[data-theme="dark"] #viewContainer #logoutBtn {
+  color: var(--text-primary) !important;
+}
+
+html[data-theme="dark"] #viewContainer .wb-card i,
+html[data-theme="dark"] #viewContainer button.wb-card i {
+  color: var(--text-secondary) !important;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
