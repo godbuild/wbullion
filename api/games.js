@@ -4,6 +4,15 @@ import { resolveUser, stripPassword } from '../lib/auth.js';
 const SAVE_PCT = 0.15;
 const betTTTRounds = new Map();
 
+async function recordHouseRevenue(sb, amount, game) {
+  const value = Number(amount);
+  if (!Number.isFinite(value) || value <= 0) return;
+  const { data: admin } = await sb.from('users').select('id, balance').eq('admin', true).limit(1).maybeSingle();
+  if (!admin) return;
+  await sb.from('users').update({ balance: Number(admin.balance || 0) + value, updated_at: new Date().toISOString() }).eq('id', admin.id);
+  await sb.from('transactions').insert({ user_id: admin.id, type: 'credit', amount: value, description: `${game} game loss revenue`, game_name: game });
+}
+
 export default async function handler(req, res) {
   const action = req.query.action || req.body?.action;
   switch (action) {
@@ -190,6 +199,7 @@ async function levellerCashout(req, res) {
     user_id: user.id, type: 'debit', amount: b,
     description: `Leveller crashed @ ${cp.toFixed(2)}x`, game_name: 'leveller'
   });
+  await recordHouseRevenue(sb, b, 'leveller');
   res.status(200).json({ success: true, won: false, crashPoint: cp });
 }
 
@@ -240,6 +250,7 @@ async function betTTT(req, res) {
     await sb.from('action_logs').insert({
       user_id: user.id, action: 'game_loss', meta: { game: 'bet_ttt', amount: b }
     });
+    await recordHouseRevenue(sb, b, 'bet_ttt');
   }
 
   await sb.from('bet_ttt_history').insert({
@@ -322,10 +333,11 @@ async function footballShot(req, res) {
       user_id: user.id, type: 'debit', amount: penalty,
       description: 'Football save penalty', game_name: 'football'
     });
-    await sb.from('action_logs').insert({
-      user_id: user.id, action: 'game_loss', meta: { game: 'football', amount: penalty }
-    });
-    await sb.from('football_shots').insert({
+  await sb.from('action_logs').insert({
+    user_id: user.id, action: 'game_loss', meta: { game: 'football', amount: penalty }
+  });
+  await recordHouseRevenue(sb, penalty, 'football');
+  await sb.from('football_shots').insert({
       user_id: user.id, taker_id: takerId || null, portion: null, amount: 0, outcome
     });
     return res.status(200).json({ success: true, outcome, penalty, user: stripPassword(updated) });
