@@ -104,6 +104,26 @@ export async function renderNotifications(category = 'all') {
       };
     });
 
+    // Clicking anywhere on a notification marks it read; Read more also opens the detail.
+    document.querySelectorAll('[data-id].wb-card').forEach(card => {
+      card.onclick = async event => {
+        if (event.target.closest('button')) return;
+        const notification = list.find(item => String(item.id) === String(card.dataset.id));
+        if (!notification || notification.read) return;
+        try {
+          await apiFetch('/api/notifications?action=read', {
+            method: 'POST',
+            body: JSON.stringify({ deviceId: getDeviceId(), id: notification.id })
+          });
+          card.style.background = 'var(--bg-primary)';
+          notification.read = true;
+          document.querySelectorAll('.notifDot').forEach(n => n.style.display = 'none');
+        } catch (err) {
+          showAlert(err.message || 'Failed to mark notification', 'Error');
+        }
+      };
+    });
+
     // Attach click handlers to each notification entry
     document.querySelectorAll('.readMore').forEach(button => {
       button.onclick = async () => {
