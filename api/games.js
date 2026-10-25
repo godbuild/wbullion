@@ -137,11 +137,13 @@ async function balanceOp(req, res) {
     game_name: gameName || null
   });
   if (transactionError) return res.status(500).json({ error: 'Transaction could not be recorded' });
+  const action = isGameLoss ? 'game_loss' : (isGameWin ? 'game_win' : 'balance_op');
   await sb.from('action_logs').insert({
     user_id: user.id,
-    action: isGameLoss ? 'game_loss' : (isGameWin ? 'game_win' : 'balance_op'),
+    action,
     meta: { amount: amt, game: gameName || null }
   });
+  if (isGameLoss && gameName) await recordHouseRevenue(sb, amt, gameName);
 
   res.status(200).json({ success: true, balance: newBalance, user: stripPassword(updated) });
 }
