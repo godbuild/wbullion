@@ -216,6 +216,7 @@ function loadAdminEarnings() {
   adminFetch(`${API}/admin?action=stats`).then(r => r.json()).then(d => {
     document.getElementById('adminBalanceBig').textContent = 'NGN ' + (d.adminEarnings || 0).toLocaleString();
   });
+  renderEarningsContent();
   document.querySelectorAll('#earningsTabs button').forEach(b => {
     b.onclick = () => {
       earningsTab = b.dataset.tab;
@@ -240,7 +241,17 @@ async function renderEarningsContent() {
         </p>
       </div>`;
   } else {
-    el.innerHTML = `<p class="muted" style="margin-top:12px;">Total revenue from game losses: see above. Per-user loss details available in Statistics.</p>`;
+    const r = await adminFetch(`${API}/admin?action=earnings-history`);
+    const d = await r.json();
+    if (!r.ok) { el.innerHTML = `<p class="muted">${escapeAdminHtml(d.error || 'Unable to load earnings history')}</p>`; return; }
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+        <div class="wb-card"><span class="muted">Credits</span><strong style="display:block;color:#10b981;margin-top:4px;">+NGN ${Number(d.credits || 0).toLocaleString()}</strong></div>
+        <div class="wb-card"><span class="muted">Debits</span><strong style="display:block;color:#ef4444;margin-top:4px;">-NGN ${Number(d.debits || 0).toLocaleString()}</strong></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+        ${(d.transactions || []).map(t => `<div class="wb-card" style="display:flex;justify-content:space-between;gap:12px;padding:12px;"><span>${escapeAdminHtml(t.description || 'Admin transaction')}<small class="muted" style="display:block;margin-top:3px;">${new Date(t.created_at).toLocaleString()}</small></span><strong style="color:${t.type === 'credit' ? '#10b981' : '#ef4444'}">${t.type === 'credit' ? '+' : '-'}NGN ${Number(t.amount || 0).toLocaleString()}</strong></div>`).join('') || '<p class="muted">No admin transactions yet.</p>'}
+      </div>`;
   }
 }
 
