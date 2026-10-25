@@ -52,12 +52,8 @@ export function renderReelsCreate() {
   let selectedFile = null;
 
   pickBtn.onclick = () => {
-    const permissions = JSON.parse(localStorage.getItem('wb_perms') || '{}');
-    if (!permissions.storage) {
-      showAlert('Turn on Device Storage permission before selecting a video.', 'Permission required');
-      navigate('/permissions');
-      return;
-    }
+    // File inputs already use the browser's native, user-approved picker.
+    // Do not gate uploads behind the app's optional permission preference.
     fileInput.click();
   };
 
