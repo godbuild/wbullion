@@ -101,6 +101,7 @@ function showDashboard(sessionData) {
   loadAdminEarnings();
   loadPayments('pending');
   loadUsers();
+  loadGallery();
   loadNominees();
   loadBroadcasts();
   loadStatistics('hour');
@@ -491,6 +492,26 @@ async function showBanModal() {
     modal.remove(); loadUsers();
   };
   document.body.appendChild(modal);
+}
+
+// ============ Gallery ============
+async function loadGallery() {
+  const el = document.getElementById('galleryGrid');
+  try {
+    const r = await adminFetch(`${API}/admin?action=payments-list&status=all`);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Unable to load gallery');
+    const images = (d.payments || []).flatMap(p => [
+      p.sms_screenshot ? { src: p.sms_screenshot, label: `SMS alert · ${p.email || 'Unknown'}` } : null,
+      p.receipt_screenshot ? { src: p.receipt_screenshot, label: `Receipt · ${p.email || 'Unknown'}` } : null
+    ]).filter(Boolean);
+    el.innerHTML = images.length ? images.map(image => `
+      <button class="gallery-item" type="button" title="${image.label.replace(/"/g, '&quot;')}" onclick="viewScreens('${image.src.replace(/'/g, '%27')}', '')">
+        <img src="${image.src}" alt="${image.label.replace(/"/g, '&quot;')}" loading="lazy">
+      </button>`).join('') : '<p class="muted">No receipt images available</p>';
+  } catch (error) {
+    el.innerHTML = `<p class="muted">${error.message || 'Unable to load gallery'}</p>`;
+  }
 }
 
 // ============ Nominees ============

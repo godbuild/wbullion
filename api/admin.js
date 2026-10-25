@@ -526,12 +526,18 @@ async function badges(req, res) {
     const { nomineeId, action } = req.body || {};
     if (!nomineeId || !['confirm', 'ignore'].includes(action)) return res.status(400).json({ error: 'nomineeId and valid action required' });
 
-    const { data: n } = await sb.from('badge_nominees').select('*').eq('id', nomineeId).maybeSingle();
+    const { data: n, error: nomineeError } = await sb.from('badge_nominees').select('*').eq('id', nomineeId).maybeSingle();
+    if (nomineeError) return res.status(500).json({ error: nomineeError.message });
     if (!n) return res.status(404).json({ error: 'Nominee not found' });
+    if (n.status !== 'pending') return res.status(409).json({ error: 'This nominee has already been reviewed' });
 
     if (action === 'confirm') {
-      await sb.from('badge_nominees').update({ status: 'confirmed', reviewed_at: new Date().toISOString() }).eq('id', nomineeId);
-      await sb.from('users').update({ badge_awarded: true }).eq('id', n.user_id);
+      const reviewedAt = new Date().toISOString();
+      const { error: nomineeUpdateError } = await sb.from('badge_nominees')
+        .update({ status: 'confirmed', reviewed_at: reviewedAt }).eq('id', nomineeId).eq('status', 'pending');
+      if (nomineeUpdateError) return res.status(500).json({ error: nomineeUpdateError.message });
+      const { error: userUpdateError } = await sb.from('users').update({ badge_awarded: true }).eq('id', n.user_id);
+      if (userUpdateError) return res.status(500).json({ error: userUpdateError.message });
       await sb.from('notifications').insert({
         user_id: n.user_id, category: 'badge',
         title: 'W Bullion Verified Badge Awarded',
@@ -540,7 +546,8 @@ async function badges(req, res) {
       return res.status(200).json({ success: true, action: 'confirmed' });
     }
     if (action === 'ignore') {
-      await sb.from('badge_nominees').update({ status: 'ignored', reviewed_at: new Date().toISOString() }).eq('id', nomineeId);
+      const { error } = await sb.from('badge_nominees').update({ status: 'ignored', reviewed_at: new Date().toISOString() }).eq('id', nomineeId).eq('status', 'pending');
+      if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json({ success: true, action: 'ignored' });
     }
   }
