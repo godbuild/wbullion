@@ -4,7 +4,7 @@ export function renderTakerSelect(takers, onSelect) {
   const el = document.getElementById('viewContainer');
   el.style.padding = '0';
   el.innerHTML = `
-    <div style="background:var(--purple);min-height:100dvh;padding:20px;padding-top:calc(20px + env(safe-area-inset-top));color:white;">
+    <div style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;min-height:100dvh;padding:20px;padding-top:calc(20px + env(safe-area-inset-top));color:white;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
         <h2 style="font-size:22px;font-weight:bold;">Select your Taker</h2>
         <button id="closeSelect" style="background:none;border:none;color:white;font-size:22px;cursor:pointer;"><i class="fas fa-close"></i></button>
