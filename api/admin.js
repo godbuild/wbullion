@@ -194,11 +194,14 @@ async function stats(req, res) {
   const { count: activations } = await sb.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
 
   const { data: adminUser } = await sb.from('users').select('balance').eq('admin', true).maybeSingle();
+  const adminBalance = Number(adminUser?.balance || 0);
   res.status(200).json({
     totalUsers: totalUsers || 0,
     activatedUsers: activatedUsers || 0,
     pendingPayments: pendingPayments || 0,
-    adminEarnings: Number(adminUser?.balance || gameLosses),
+    adminEarnings: Math.max(adminBalance, gameLosses),
+    gameLossRevenue: gameLosses,
+    adminBalance,
     confirmedActivations: activations || 0,
     totalActivationRevenue: (activations || 0) * 500
   });
@@ -288,8 +291,14 @@ async function balanceAdjust(req, res) {
 
   const { data: adminUser } = await sb.from('users').select('id, balance').eq('id', adminSession.admin_user_id).maybeSingle();
   if (!adminUser) return res.status(500).json({ error: 'Admin earnings account is not configured' });
+  const { data: gameLossTransactions } = await sb.from('transactions')
+    .select('amount, description').eq('type', 'debit');
+  const gameLossRevenue = (gameLossTransactions || [])
+    .filter(transaction => /game|bet|loss/i.test(transaction.description || ''))
+    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
   const currentBalance = Number(user.balance || 0);
-  const adminBalance = Number(adminUser.balance || 0);
+  // Preserve historical game revenue even when the admin account balance was never seeded.
+  const adminBalance = Math.max(Number(adminUser.balance || 0), gameLossRevenue);
   if (operation === 'debit' && currentBalance < value) return res.status(400).json({ error: 'Insufficient balance' });
   if (operation === 'credit' && adminBalance < value) return res.status(400).json({ error: 'Insufficient admin earnings' });
   const nextBalance = operation === 'credit' ? currentBalance + value : currentBalance - value;
