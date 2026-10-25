@@ -2,6 +2,7 @@ import { getAdminClient } from '../lib/supabase.js';
 import { resolveUser, stripPassword } from '../lib/auth.js';
 
 const SAVE_PCT = 0.15;
+const betTTTRounds = new Map();
 
 export default async function handler(req, res) {
   const action = req.query.action || req.body?.action;
@@ -52,7 +53,9 @@ async function odds(req, res) {
       const draw = Number((2 + Math.random() * 10).toFixed(1));
       const roll = Math.random();
       const outcome = roll < 0.4 ? 'X' : roll < 0.6 ? 'draw' : 'O';
-      return res.status(200).json({ odds: { X: x, O: o, draw }, outcome });
+      const roundId = `${user.id}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+      betTTTRounds.set(roundId, { userId: user.id, createdAt: Date.now(), outcome, odds: { X: x, O: o, draw } });
+      return res.status(200).json({ odds: { X: x, O: o, draw }, outcome, roundId });
     }
     case 'football': {
       const portions = [];
@@ -197,19 +200,19 @@ async function betTTT(req, res) {
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   if (!user.activated) return res.status(403).json({ error: 'Not activated' });
 
-  const { bet, choice } = req.body || {};
+  const { bet, choice, roundId } = req.body || {};
+  const round = roundId ? betTTTRounds.get(roundId) : null;
+  if (!round || round.userId !== user.id || Date.now() - round.createdAt > 10 * 60 * 1000) {
+    return res.status(409).json({ error: 'This round has expired. Please start a new round.' });
+  }
   const b = Number(bet);
   if (!Number.isFinite(b) || b < 10) return res.status(400).json({ error: 'Minimum bet is NGN 10' });
   if (!['X', 'O', 'draw'].includes(choice)) return res.status(400).json({ error: 'Invalid choice' });
   const balance = Number(user.balance || 0);
   if (!Number.isFinite(balance) || balance < b) return res.status(400).json({ error: 'Insufficient balance' });
+  betTTTRounds.delete(roundId);
 
-  const x = Number((2 + Math.random() * 10).toFixed(1));
-  const o = Number((2 + Math.random() * 10).toFixed(1));
-  const draw = Number((2 + Math.random() * 10).toFixed(1));
-  const roll = Math.random();
-  const outcome = roll < 0.4 ? 'X' : roll < 0.6 ? 'draw' : 'O';
-  const odds = { X: x, O: o, draw };
+  const { outcome, odds } = round;
   const sb = getAdminClient();
   const afterBet = Number(user.balance || 0) - b;
   await sb.from('users').update({ balance: afterBet, updated_at: new Date().toISOString() }).eq('id', user.id);

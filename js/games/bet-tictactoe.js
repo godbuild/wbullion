@@ -48,6 +48,9 @@ export function renderBetTTT() {
   let selected = null;
   let currentOdds = null;
   let _outcome = null;
+  let roundId = null;
+  let roundLoading = false;
+  let betSettled = false;
 
   document.querySelectorAll('.betChoice').forEach(btn => {
     btn.onclick = () => {
@@ -74,6 +77,9 @@ export function renderBetTTT() {
       }
       currentOdds = d.odds;
       _outcome = d.outcome;
+      roundId = d.roundId;
+      betSettled = false;
+      document.getElementById('placeBetBtn').disabled = false;
       document.getElementById('oddX').textContent = `${Number(d.odds.X).toFixed(1)}x`;
       document.getElementById('oddO').textContent = `${Number(d.odds.O).toFixed(1)}x`;
       document.getElementById('oddDraw').textContent = `${Number(d.odds.draw).toFixed(1)}x`;
@@ -84,7 +90,9 @@ export function renderBetTTT() {
   }
 
   document.getElementById('refreshOddsBtn').onclick = () => {
+    if (roundLoading) return;
     document.getElementById('betTTTResult').style.display = 'none';
+    document.getElementById('placeBetBtn').disabled = true;
     document.getElementById('betTTTAmount').value = '';
     selected = null;
     document.querySelectorAll('.betChoice').forEach(b => {
@@ -100,6 +108,9 @@ export function renderBetTTT() {
     const amount = Number(document.getElementById('betTTTAmount').value);
     if (!amount || amount < 10) return showAlert('Minimum bet is NGN 10');
 
+    if (betSettled || !roundId || !currentOdds) return showAlert('Please start a new round before placing another bet');
+    betSettled = true;
+    document.getElementById('placeBetBtn').disabled = true;
     const betOdds = currentOdds[selected];
     let d;
     try {
@@ -107,7 +118,7 @@ export function renderBetTTT() {
         method: 'POST',
         body: JSON.stringify({
           deviceId: getDeviceId(), bet: amount,
-          choice: selected, odds: betOdds, outcome: _outcome
+          choice: selected, odds: betOdds, outcome: _outcome, roundId
         })
       });
     } catch (err) {
@@ -135,6 +146,8 @@ export function renderBetTTT() {
       resultEl.style.color = '#991b1b';
       showToast(`-${money(amount)}`);
     }
+    // Keep the settled result visible while immediately issuing fresh odds for the next round.
+    fetchOdds();
   };
 
   document.getElementById('closeBetTTT').onclick = () => navigate('/games');
