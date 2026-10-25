@@ -51,7 +51,15 @@ export function renderReelsCreate() {
   const postBtn = document.getElementById('postBtn');
   let selectedFile = null;
 
-  pickBtn.onclick = () => fileInput.click();
+  pickBtn.onclick = () => {
+    const permissions = JSON.parse(localStorage.getItem('wb_perms') || '{}');
+    if (!permissions.storage) {
+      showAlert('Turn on Device Storage permission before selecting a video.', 'Permission required');
+      navigate('/permissions');
+      return;
+    }
+    fileInput.click();
+  };
 
   fileInput.onchange = () => {
     const f = fileInput.files[0];
