@@ -1,12 +1,32 @@
+let babylonPromise;
+
 export async function loadBabylon() {
-  return new Promise((resolve, reject) => {
-    if (window.BABYLON) return resolve(window.BABYLON);
-    const s = document.createElement('script');
-    s.src = 'https://cdn.babylonjs.com/babylon.js';
-    s.onload = () => resolve(window.BABYLON);
-    s.onerror = reject;
-    document.head.appendChild(s);
+  if (window.BABYLON) return window.BABYLON;
+  if (babylonPromise) return babylonPromise;
+
+  babylonPromise = new Promise((resolve, reject) => {
+    const sources = [
+      'https://cdn.babylonjs.com/babylon.js',
+      'https://cdn.jsdelivr.net/npm/babylonjs@7.51.0/babylon.js'
+    ];
+    let index = 0;
+    const tryNext = () => {
+      if (window.BABYLON) return resolve(window.BABYLON);
+      if (index >= sources.length) return reject(new Error('Babylon.js could not be loaded'));
+      const script = document.createElement('script');
+      script.src = sources[index++];
+      script.async = true;
+      script.onload = () => window.BABYLON ? resolve(window.BABYLON) : tryNext();
+      script.onerror = tryNext;
+      document.head.appendChild(script);
+    };
+    tryNext();
+  }).catch(error => {
+    babylonPromise = null;
+    throw error;
   });
+
+  return babylonPromise;
 }
 
 export function createScene(canvas, { isDark }) {
