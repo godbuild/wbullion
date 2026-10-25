@@ -1,7 +1,7 @@
 let babylonPromise;
 
 export async function loadBabylon() {
-  if (window.BABYLON) return window.BABYLON;
+  if (window.BABYLON?.Engine && window.BABYLON?.Scene) return window.BABYLON;
   if (babylonPromise) return babylonPromise;
 
   babylonPromise = new Promise((resolve, reject) => {
