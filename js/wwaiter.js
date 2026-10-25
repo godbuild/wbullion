@@ -77,7 +77,7 @@ function render() {
   _container.style.display = 'block';
   _visible = true;
   _container.innerHTML = `
-    <div id="wwaiterBubble" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#3ba072,#154c00);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.35);position:relative;margin-right:8px;">
+    <div id="wwaiterBubble" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#3ba072,#154c00);display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.35);position:relative;margin-right:8px;transition:filter .2s,opacity .2s;">
       <img src="/images/logo.png" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
       <span style="display:none;color:white;font-weight:900;font-size:18px;">W</span>
       <span id="wwaiterCount" style="position:absolute;top:-4px;right:-4px;background:#ef4444;color:white;font-size:10px;font-weight:700;padding:2px 6px;border-radius:10px;min-width:16px;text-align:center;">${_items.length}</span>
@@ -117,6 +117,13 @@ function showCloseButton() {
     box-shadow:0 4px 12px rgba(0,0,0,0.3);
   `;
   document.body.appendChild(btn);
+  const bubble = document.getElementById('wwaiterBubble');
+  if (bubble) {
+    bubble.style.filter = 'blur(5px)';
+    bubble.style.opacity = '0.55';
+    bubble.setAttribute('aria-hidden', 'true');
+  }
+  btn.setAttribute('aria-label', 'Close W Waiter');
   btn.onclick = () => {
     _items = [];
     save();
@@ -126,7 +133,13 @@ function showCloseButton() {
   };
   setTimeout(() => {
     if (document.body.contains(btn)) btn.remove();
-  }, 4000);
+    const currentBubble = document.getElementById('wwaiterBubble');
+    if (currentBubble) {
+      currentBubble.style.filter = '';
+      currentBubble.style.opacity = '';
+      currentBubble.removeAttribute('aria-hidden');
+    }
+  }, 10000);
 }
 
 // ----- Panel -----

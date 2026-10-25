@@ -20,7 +20,8 @@ export async function renderTicTacToe() {
     round: 1,
     difficulty: 'medium',
     boxValues: [],
-    winLine: null
+    winLine: null,
+    computerThinking: false
   };
 
   try {
@@ -70,10 +71,16 @@ export async function renderTicTacToe() {
   document.querySelectorAll('.tttCell').forEach(cell => {
     cell.onclick = () => handleUserMove(Number(cell.dataset.index));
   });
+
+  if (_state.userSymbol === 'O') await makeComputerMove();
 }
 
 async function handleUserMove(index) {
   if (_state.gameOver || _state.board[index]) return;
+  if (_state.computerThinking) {
+    showToast('It is not your turn');
+    return;
+  }
   _state.board[index] = _state.userSymbol;
   updateBoard();
 
@@ -81,9 +88,14 @@ async function handleUserMove(index) {
   if (w) return endGame(w);
   if (_state.board.every(c => c)) return endGame('draw');
 
-  await new Promise(r => setTimeout(r, 300));
+  await makeComputerMove();
+}
 
+async function makeComputerMove() {
+  if (_state.gameOver || _state.computerThinking) return;
+  _state.computerThinking = true;
   try {
+    await new Promise(r => setTimeout(r, 300));
     const data = await apiFetch('/api/games?action=odds', {
       method: 'POST',
       body: JSON.stringify({
@@ -93,14 +105,18 @@ async function handleUserMove(index) {
       })
     });
     const idx = data.move;
-    if (idx !== undefined && idx !== null) {
+    if (idx !== undefined && idx !== null && !_state.board[idx]) {
       _state.board[idx] = _state.computerSymbol;
       updateBoard();
       const w2 = checkWinner(_state.board);
       if (w2) return endGame(w2);
       if (_state.board.every(c => c)) return endGame('draw');
     }
-  } catch {}
+  } catch {
+    showToast('Computer could not move. Please try again.');
+  } finally {
+    _state.computerThinking = false;
+  }
 }
 
 function updateBoard() {
