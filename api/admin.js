@@ -27,6 +27,7 @@ export default async function handler(req, res) {
     case 'receipt':          return receipt(req, res);
     case 'send-email':       return sendEmail(req, res);
     case 'broadcast':        return broadcast(req, res);
+    case 'notification-readers': return notificationReaders(req, res);
     case 'badges':           return badges(req, res);
     case 'statistics':       return statistics(req, res);
     case 'sessions-list':    return sessionsList(req, res);
@@ -135,6 +136,32 @@ async function adminLogout(req, res) {
   const deviceId = req.headers['x-admin-device'] || req.body?.deviceId;
   if (deviceId) await revokeSession(deviceId);
   res.status(200).json({ success: true });
+}
+
+// ---------- notification read receipts ----------
+async function notificationReaders(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const sb = getAdminClient();
+  const { data: notifications, error } = await sb.from('notifications')
+    .select('id, user_id, title, read, created_at')
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) return res.status(500).json({ error: error.message });
+
+  const userIds = [...new Set((notifications || []).map(n => n.user_id).filter(Boolean))];
+  const { data: users, error: usersError } = userIds.length
+    ? await sb.from('users').select('id, username, full_name, email').in('id', userIds)
+    : { data: [], error: null };
+  if (usersError) return res.status(500).json({ error: usersError.message });
+  const usersById = Object.fromEntries((users || []).map(user => [user.id, user]));
+  return res.status(200).json({
+    notifications: (notifications || []).map(notification => ({
+      ...notification,
+      user: usersById[notification.user_id] || null
+    }))
+  });
 }
 
 // ---------- stats ----------

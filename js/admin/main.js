@@ -104,6 +104,7 @@ function showDashboard(sessionData) {
   loadGallery();
   loadNominees();
   loadBroadcasts();
+  loadNotificationReaders();
   loadStatistics('hour');
 
   setInterval(loadStats, 10000);
@@ -639,6 +640,31 @@ document.getElementById('bcSend').onclick = async () => {
   document.getElementById('bcBody').innerHTML = '';
   loadBroadcasts();
 };
+
+async function loadNotificationReaders() {
+  const el = document.getElementById('notificationReaders');
+  if (!el) return;
+  const r = await adminFetch(`${API}/admin?action=notification-readers`);
+  const d = await r.json();
+  if (!r.ok) { el.innerHTML = `<p class="muted">${d.error || 'Unable to load read receipts'}</p>`; return; }
+  const rows = d.notifications || [];
+  if (rows.length === 0) { el.innerHTML = '<p class="muted">No user notifications have been sent yet.</p>'; return; }
+  el.innerHTML = rows.map(n => `
+    <div class="broadcast-item">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+        <strong>${escapeAdminHtml(n.title || 'Notification')}</strong>
+        <span class="status-pill ${n.read ? 'confirmed' : 'pending'}">${n.read ? 'Read' : 'Unread'}</span>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:4px;">${escapeAdminHtml(n.user?.full_name || n.user?.username || n.user?.email || 'Unknown user')} · ${escapeAdminHtml(n.user?.email || '')}</p>
+      <p class="muted" style="font-size:12px;margin-top:4px;">${new Date(n.created_at).toLocaleString()}</p>
+    </div>`).join('');
+}
+
+function escapeAdminHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+}
+
+document.getElementById('refreshNotificationReaders')?.addEventListener('click', loadNotificationReaders);
 
 async function loadBroadcasts() {
   const r = await adminFetch(`${API}/admin?action=broadcast`);
