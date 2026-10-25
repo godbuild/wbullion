@@ -539,7 +539,7 @@ async function showBanModal() {
 let galleryImages = [];
 let galleryIndex = 0;
 
-window.openGallery = (index) => {
+window.openGallery = (index = 0) => {
   if (!galleryImages.length) return;
   galleryIndex = index;
   const modal = document.getElementById('galleryModal');
@@ -582,10 +582,14 @@ async function loadGallery() {
       p.sms_screenshot ? { src: p.sms_screenshot, label: `SMS alert · ${p.email || 'Unknown'}` } : null,
       p.receipt_screenshot ? { src: p.receipt_screenshot, label: `Receipt · ${p.email || 'Unknown'}` } : null
     ]).filter(Boolean);
-    el.innerHTML = galleryImages.length ? galleryImages.map((image, index) => `
-      <button class="gallery-item" type="button" title="${image.label.replace(/"/g, '&quot;')}" onclick="openGallery(${index})">
-        <img src="${image.src}" alt="${image.label.replace(/"/g, '&quot;')}" loading="lazy">
-      </button>`).join('') : '<p class="muted">No receipt images available</p>';
+    const button = document.getElementById('openGalleryButton');
+    if (button) {
+      button.disabled = !galleryImages.length;
+      button.onclick = () => openGallery(0);
+    }
+    el.innerHTML = galleryImages.length
+      ? `<p class="muted gallery-ready"><i class="fas fa-check-circle"></i> ${galleryImages.length} snapshot${galleryImages.length === 1 ? '' : 's'} ready to view</p>`
+      : '<p class="muted">No receipt images available</p>';
   } catch (error) {
     el.innerHTML = `<p class="muted">${error.message || 'Unable to load gallery'}</p>`;
   }
