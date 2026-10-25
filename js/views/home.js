@@ -1,4 +1,4 @@
-import { navigate } from '../router.js';
+import { navigate, getCurrentPath } from '../router.js';
 import { getCurrentUser, setCurrentUser, getDeviceId } from '../auth.js';
 import { showAlert, showToast } from '../modal.js';
 import { money, compact } from '../format.js';
@@ -171,17 +171,29 @@ async function handleTelegramBonus() {
 
 function setupPullToRefresh() {
   const el = document.getElementById('viewContainer');
-  let startY = 0;
-  el.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true });
-  el.addEventListener('touchmove', (e) => {
-    // The app scrolls with the document, so checking only the main element misses the gesture.
-    if (window.scrollY > 0 || el.scrollTop > 0) return;
+  if (!el) return;
+
+  // viewContainer is reused between routes, so remove the previous home-only
+  // listeners before attaching new ones after a refresh.
+  el.ontouchstart = (e) => {
+    if (getCurrentPath() !== '/home') return;
+    el.dataset.pullStartY = String(e.touches[0].clientY);
+  };
+  el.ontouchmove = (e) => {
+    if (getCurrentPath() !== '/home' || window.scrollY > 0 || el.scrollTop > 0) return;
+    const startY = Number(el.dataset.pullStartY);
     const dy = e.touches[0].clientY - startY;
     if (dy > 70 && !_pullActive) {
       _pullActive = true;
       const ind = document.getElementById('pullIndicator');
       if (ind) ind.style.display = 'block';
-      setTimeout(() => { _pullActive = false; renderHome(); window.scrollTo(0, 0); }, 700);
+      setTimeout(() => {
+        _pullActive = false;
+        if (getCurrentPath() === '/home') {
+          renderHome();
+          window.scrollTo(0, 0);
+        }
+      }, 700);
     }
-  }, { passive: true });
+  };
 }
