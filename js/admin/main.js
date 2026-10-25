@@ -245,6 +245,34 @@ async function renderEarningsContent() {
 
 // ============ Payments ============
 let currentPaymentTab = 'pending';
+let lastPendingPaymentCount = null;
+
+function updatePaymentNotification(count) {
+  const badge = document.getElementById('adminPaymentBadge');
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'inline-flex' : 'none';
+  }
+  if (lastPendingPaymentCount !== null && count > lastPendingPaymentCount) {
+    const added = count - lastPendingPaymentCount;
+    toast(`${added} new payment${added === 1 ? '' : 's'} waiting for confirmation`);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('W Bullion: pending payment', { body: `${added} new payment${added === 1 ? '' : 's'} need confirmation.` });
+    }
+  }
+  lastPendingPaymentCount = count;
+}
+
+document.getElementById('adminPaymentAlert')?.addEventListener('click', async () => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { await Notification.requestPermission(); } catch (_) { /* in-app alerts remain available */ }
+  }
+  document.getElementById('paymentsPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  currentPaymentTab = 'pending';
+  document.querySelectorAll('#paymentTabs .tab').forEach(x => x.classList.toggle('active', x.dataset.tab === 'pending'));
+  loadPayments('pending');
+});
+
 document.querySelectorAll('#paymentTabs .tab').forEach(t => {
   t.onclick = () => {
     currentPaymentTab = t.dataset.tab;
@@ -282,6 +310,7 @@ async function loadPayments(status) {
   const r = await adminFetch(`${API}/admin?action=payments-list&status=${status}`);
   const d = await r.json();
   const payments = d.payments || [];
+  if (status === 'pending') updatePaymentNotification(payments.length);
   if (payments.length === 0) {
     el.innerHTML = `<p class="muted">No ${status} payments</p>`;
     return;

@@ -42,7 +42,12 @@
           <h1>Admin Dashboard</h1>
           <p class="muted" id="adminIdentity">—</p>
         </div>
-        <button id="logoutBtn" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button id="adminPaymentAlert" class="btn btn-ghost" type="button" aria-label="Pending payment notifications" title="Pending payment notifications">
+            <i class="fas fa-bell"></i> <span>Payments</span> <strong id="adminPaymentBadge" class="status-pill pending" style="display:none;padding:3px 8px;">0</strong>
+          </button>
+          <button id="logoutBtn" class="btn btn-danger"><i class="fas fa-sign-out-alt"></i> Logout</button>
+        </div>
       </div>
 
       <section class="stats-grid" id="statsGrid"></section>
