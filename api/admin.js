@@ -181,15 +181,20 @@ async function earningsHistory(req, res) {
 async function stats(req, res) {
   if (!(await requireAdmin(req, res))) return;
   const sb = getAdminClient();
-  const [{ count: totalUsers }, { count: activatedUsers }, { count: pendingPayments }, { data: txData }] = await Promise.all([
+  const [{ count: totalUsers }, { count: activatedUsers }, { count: pendingPayments }, { data: txData }, { data: lossLogs }] = await Promise.all([
     sb.from('users').select('*', { count: 'exact', head: true }).is('deleted_at', null),
     sb.from('users').select('*', { count: 'exact', head: true }).eq('activated', true).is('deleted_at', null),
     sb.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    sb.from('transactions').select('amount, type, description').eq('type', 'debit')
+    sb.from('transactions').select('amount, type, description, game_name').eq('type', 'debit'),
+    sb.from('action_logs').select('meta, action').eq('action', 'game_loss')
   ]);
-  const gameLosses = (txData || [])
-    .filter(t => /game|bet|loss/i.test(t.description || ''))
-    .reduce((s, t) => s + Number(t.amount), 0);
+  const transactionRevenue = (txData || [])
+    .filter(t => t.game_name || /game|bet|loss/i.test(t.description || ''))
+    .reduce((s, t) => s + Number(t.amount || 0), 0);
+  const loggedRevenue = (lossLogs || [])
+    .reduce((s, log) => s + Number(log.meta?.amount || 0), 0);
+  // Prefer the loss ledger, while retaining older game debits recorded only as transactions.
+  const gameLosses = Math.max(transactionRevenue, loggedRevenue);
 
   const { count: activations } = await sb.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'confirmed');
 
