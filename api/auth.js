@@ -90,11 +90,19 @@ async function login(req, res) {
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
   if (deviceId) {
-    const devices = user.devices || [];
-    if (!devices.includes(deviceId)) {
-      devices.push(deviceId);
-      await sb.from('users').update({ devices, updated_at: new Date().toISOString() }).eq('id', user.id);
+    // A device is only a local session handle, not an account identity. Move
+    // it to the account that just completed an explicit password login so a
+    // shared device cannot keep resolving to a previously logged-in account.
+    const { data: linkedUsers } = await sb.from('users').select('id, devices')
+      .contains('devices', [deviceId]).neq('id', user.id).is('deleted_at', null);
+    for (const linked of linkedUsers || []) {
+      const devices = (linked.devices || []).filter(id => id !== deviceId);
+      await sb.from('users').update({ devices, updated_at: new Date().toISOString() }).eq('id', linked.id);
     }
+
+    const devices = user.devices || [];
+    if (!devices.includes(deviceId)) devices.push(deviceId);
+    await sb.from('users').update({ devices, updated_at: new Date().toISOString() }).eq('id', user.id);
   }
 
   const { password_hash, ...safeUser } = user;
