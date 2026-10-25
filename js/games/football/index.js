@@ -33,7 +33,7 @@ export async function renderFootball() {
   el.style.padding = '0';
   el.style.minHeight = '100dvh';
   el.innerHTML = `
-    <div style="background:var(--purple);min-height:100dvh;display:flex;align-items:center;justify-content:center;color:white;">
+    <div style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;min-height:100dvh;display:flex;align-items:center;justify-content:center;color:white;">
       <div style="text-align:center;">
         <div style="font-size:60px;margin-bottom:16px;"><i class="fas fa-futbol fa-spin"></i></div>
         <p style="font-size:14px;opacity:0.85;">Loading shootout...</p>
@@ -90,7 +90,7 @@ async function startGame(config, takerData) {
   } catch (err) {
     console.error('[football] Babylon load error', err);
     el.innerHTML = `
-      <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+      <div style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
         <div><i class="fas fa-triangle-exclamation" style="font-size:42px;color:#fbbf24;margin-bottom:16px;"></i><h3>Football shootout unavailable</h3><p style="opacity:.8;margin:10px 0 20px;">The 3D game engine could not load. Check your connection and try again.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
       </div>`;
     const retryButton = document.getElementById('footballRetry');
@@ -121,7 +121,7 @@ async function startGame(config, takerData) {
   } catch (err) {
     console.error('[football] createScene error', err);
     el.innerHTML = `
-      <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+      <div style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
         <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">The football graphics engine could not start on this attempt. Please retry once.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
       </div>`;
     document.getElementById('footballRetry')?.addEventListener('click', () => startGame(config, takerData));
@@ -147,7 +147,7 @@ async function startGame(config, takerData) {
     console.error('[football] object creation error', err?.stack || err);
     try { engine.stopRenderLoop(); engine.dispose(); } catch {}
     el.innerHTML = `
-      <div style="min-height:100dvh;background:linear-gradient(160deg,#241044,#111827);color:white;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+      <div style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
         <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">We could not load this taker. You can retry without losing your selection.</p><button id="footballRetry" class="wb-btn-primary">Retry taker</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
       </div>`;
     const retryButton = document.getElementById('footballRetry');

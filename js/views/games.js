@@ -17,22 +17,22 @@ export function renderGames() {
       <p data-games-balance style="font-size:26px;font-weight:bold;">${money(user?.balance || 0)}</p>
     </div>
 
-    <p style="color:var(--text-secondary);font-size:13px;margin:-10px 0 16px;">Choose a game to start. Football players currently use numbered placeholders until names and images are added.</p>
+    <p style="color:var(--text-secondary);font-size:13px;margin:-10px 0 16px;">Choose a game to start. All games use a clean silver presentation.</p>
 
     <div style="display:flex;flex-direction:column;gap:16px;">
-      <div class="gameCard" data-game="football" style="background:linear-gradient(135deg,#10b981,#059669);padding:24px;border-radius:16px;color:white;cursor:pointer;">
+      <div class="gameCard" data-game="football" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);padding:24px;border-radius:16px;color:#1f2937;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);">
         <div style="font-size:40px;margin-bottom:8px;"><i class="fas fa-futbol"></i></div>
         <h3 style="font-size:20px;font-weight:bold;">Football Shootout</h3>
         <p style="font-size:14px;opacity:0.9;">NGN 120–180 per goal</p>
       </div>
 
-      <div class="gameCard" data-game="tictactoe" style="background:linear-gradient(135deg,#3b82f6,#2563eb);padding:24px;border-radius:16px;color:white;cursor:pointer;">
+      <div class="gameCard" data-game="tictactoe" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);padding:24px;border-radius:16px;color:#1f2937;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);">
         <div style="font-size:40px;margin-bottom:8px;"><i class="fas fa-puzzle-piece"></i></div>
         <h3 style="font-size:20px;font-weight:bold;">Tic-Tac-Toe</h3>
         <p style="font-size:14px;opacity:0.9;">NGN 120–180 per win</p>
       </div>
 
-      <div class="gameCard" data-game="rps" style="background:linear-gradient(135deg,#ef4444,#dc2626);padding:24px;border-radius:16px;color:white;cursor:pointer;">
+      <div class="gameCard" data-game="rps" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);padding:24px;border-radius:16px;color:#1f2937;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);">
         <div style="font-size:40px;margin-bottom:8px;">
           <i class="fas fa-fist-raised"></i> <i class="fas fa-file"></i> <i class="fas fa-scissors"></i>
         </div>
@@ -40,13 +40,13 @@ export function renderGames() {
         <p style="font-size:14px;opacity:0.9;">NGN 200 per win</p>
       </div>
 
-      <div class="gameCard" data-game="leveller" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed);padding:24px;border-radius:16px;color:white;cursor:pointer;">
+      <div class="gameCard" data-game="leveller" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);padding:24px;border-radius:16px;color:#1f2937;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);">
         <div style="font-size:40px;margin-bottom:8px;"><i class="fas fa-mountain"></i></div>
         <h3 style="font-size:20px;font-weight:bold;">Leveller</h3>
         <p style="font-size:14px;opacity:0.9;">Bet & Cashout • Min NGN 10</p>
       </div>
 
-      <div class="gameCard" data-game="bettictactoe" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:24px;border-radius:16px;color:white;cursor:pointer;">
+      <div class="gameCard" data-game="bettictactoe" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);padding:24px;border-radius:16px;color:#1f2937;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);">
         <div style="font-size:40px;margin-bottom:8px;"><i class="fas fa-dice"></i></div>
         <h3 style="font-size:20px;font-weight:bold;">Predict Tic-Tac-Toe</h3>
         <p style="font-size:14px;opacity:0.9;">Predict X, O, or Draw</p>
