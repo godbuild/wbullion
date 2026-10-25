@@ -290,17 +290,9 @@ async function balanceAdjust(req, res) {
   if (userError || !user) return res.status(404).json({ error: 'User not found' });
 
   const { data: adminUser } = await sb.from('users').select('id, balance').eq('id', adminSession.admin_user_id).maybeSingle();
-  if (!adminUser) return res.status(500).json({ error: 'Admin earnings account is not configured' });
-  const { data: gameLossTransactions } = await sb.from('transactions')
-    .select('amount, description').eq('type', 'debit');
-  const gameLossRevenue = (gameLossTransactions || [])
-    .filter(transaction => /game|bet|loss/i.test(transaction.description || ''))
-    .reduce((sum, transaction) => sum + Number(transaction.amount || 0), 0);
   const currentBalance = Number(user.balance || 0);
-  // Preserve historical game revenue even when the admin account balance was never seeded.
-  const adminBalance = Math.max(Number(adminUser.balance || 0), gameLossRevenue);
   if (operation === 'debit' && currentBalance < value) return res.status(400).json({ error: 'Insufficient balance' });
-  if (operation === 'credit' && adminBalance < value) return res.status(400).json({ error: 'Insufficient admin earnings' });
+  const adminBalance = Number(adminUser?.balance || 0);
   const nextBalance = operation === 'credit' ? currentBalance + value : currentBalance - value;
   const nextAdminBalance = operation === 'credit' ? adminBalance - value : adminBalance + value;
   const { data: updated, error: updateError } = await sb.from('users').update({
@@ -320,20 +312,22 @@ async function balanceAdjust(req, res) {
     return res.status(500).json({ error: 'Transaction could not be recorded' });
   }
 
-  const { error: adminUpdateError } = await sb.from('users').update({ balance: nextAdminBalance, updated_at: new Date().toISOString() }).eq('id', adminUser.id);
-  if (adminUpdateError) {
-    await sb.from('users').update({ balance: currentBalance, updated_at: new Date().toISOString() }).eq('id', userId);
-    await sb.from('transactions').delete().eq('user_id', userId).eq('amount', value).eq('description', description?.trim() || (operation === 'credit' ? 'Admin credit' : 'Admin debit')).limit(1);
-    return res.status(500).json({ error: 'Admin earnings could not be updated' });
-  }
+  if (adminUser) {
+    const { error: adminUpdateError } = await sb.from('users').update({ balance: nextAdminBalance, updated_at: new Date().toISOString() }).eq('id', adminUser.id);
+    if (adminUpdateError) {
+      await sb.from('users').update({ balance: currentBalance, updated_at: new Date().toISOString() }).eq('id', userId);
+      await sb.from('transactions').delete().eq('user_id', userId).eq('amount', value).eq('description', description?.trim() || (operation === 'credit' ? 'Admin credit' : 'Admin debit')).limit(1);
+      return res.status(500).json({ error: 'Admin earnings could not be updated' });
+    }
 
-  const adminOperation = operation === 'credit' ? 'debit' : 'credit';
-  await sb.from('transactions').insert({
-    user_id: adminUser.id,
-    type: adminOperation,
-    amount: value,
-    description: `${operation === 'credit' ? 'Credit to' : 'Debit from'} ${user.username}: ${description?.trim() || 'Admin balance adjustment'}`
-  });
+    const adminOperation = operation === 'credit' ? 'debit' : 'credit';
+    await sb.from('transactions').insert({
+      user_id: adminUser.id,
+      type: adminOperation,
+      amount: value,
+      description: `${operation === 'credit' ? 'Credit to' : 'Debit from'} ${user.username}: ${description?.trim() || 'Admin balance adjustment'}`
+    });
+  }
   await sb.from('action_logs').insert({
     user_id: userId,
     action: operation === 'credit' ? 'admin_credit' : 'admin_debit',
