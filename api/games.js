@@ -245,7 +245,7 @@ async function betTTT(req, res) {
 
   const { data: updated } = await sb.from('users').select('*').eq('id', user.id).single();
   res.status(200).json({
-    success: true, won, payout, finalBalance, user: stripPassword(updated)
+    success: true, won, payout, finalBalance, outcome, user: stripPassword(updated)
   });
 }
 

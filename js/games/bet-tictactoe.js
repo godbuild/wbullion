@@ -116,14 +116,21 @@ export function renderBetTTT() {
     if (d.user) setCurrentUser(d.user);
 
     const resultEl = document.getElementById('betTTTResult');
+    const settledOutcome = d.outcome;
     resultEl.style.display = 'block';
+    if (!['X', 'O', 'draw'].includes(settledOutcome)) {
+      resultEl.textContent = 'The result could not be confirmed. Please try again.';
+      resultEl.style.background = '#fef3c7';
+      resultEl.style.color = '#92400e';
+      return;
+    }
     if (d.won) {
-      resultEl.innerHTML = `🎉 Winner: <strong>${_outcome}</strong><br>You won +${money(d.payout)}`;
+      resultEl.innerHTML = `Winner: <strong>${settledOutcome}</strong><br>You won +${money(d.payout)}`;
       resultEl.style.background = '#d1fae5';
       resultEl.style.color = '#065f46';
       showToast(`+${money(d.payout)}`);
     } else {
-      resultEl.innerHTML = `😢 Winner: <strong>${_outcome}</strong><br>You lost ${money(amount)}`;
+      resultEl.innerHTML = `Winner: <strong>${settledOutcome}</strong><br>You lost ${money(amount)}`;
       resultEl.style.background = '#fee2e2';
       resultEl.style.color = '#991b1b';
       showToast(`-${money(amount)}`);
