@@ -1,5 +1,5 @@
 import { navigate } from '../router.js';
-import { getDeviceId } from '../auth.js';
+import { getDeviceId, getCurrentUser } from '../auth.js';
 import { showToast } from '../modal.js';
 
 export async function renderSPTF() {
@@ -40,7 +40,7 @@ export async function renderSPTF() {
     const r = await fetch('/api/users?action=follow', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: getDeviceId(), username: btn.dataset.username, action: 'follow' })
+      body: JSON.stringify({ deviceId: getDeviceId(), email: getCurrentUser()?.email || undefined, username: btn.dataset.username, action: 'follow' })
     });
     const d = await r.json();
     if (!r.ok) return showToast(d.error);

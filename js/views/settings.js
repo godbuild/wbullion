@@ -28,10 +28,11 @@ export function renderSettings() {
       <i class="fas fa-chevron-down"></i>
     </button>
     <div id="visibilityPanel" style="display:none;padding:0 16px 16px;background:var(--bg-primary);border:1px solid var(--border-color);border-top:none;border-radius:0 0 16px 16px;margin-bottom:10px;">
-      <p style="font-size:13px;margin-bottom:8px;">Everyone can view your profile</p>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
-        <input type="checkbox" id="visToggle" ${user?.visibility !== false ? 'checked' : ''} style="transform:scale(1.3);">
-        <span>${user?.visibility !== false ? 'Public' : 'Private'}</span>
+      <p style="font-size:13px;margin-bottom:8px;">Choose who can view your profile</p>
+      <label class="wb-switch" style="display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;">
+        <span id="visibilityLabel">${user?.visibility !== false ? 'Public profile' : 'Private profile'}</span>
+        <input type="checkbox" id="visToggle" ${user?.visibility !== false ? 'checked' : ''} aria-label="Make profile public" style="position:absolute;opacity:0;pointer-events:none;">
+        <span class="wb-switch-track" aria-hidden="true"><span class="wb-switch-thumb"></span></span>
       </label>
     </div>
 
@@ -112,11 +113,12 @@ export function renderSettings() {
     }
     const r = await fetch('/api/users?action=visibility', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: getDeviceId(), visibility: on })
+      body: JSON.stringify({ deviceId: getDeviceId(), email: user?.email || undefined, visibility: on })
     });
     const d = await r.json();
     if (!r.ok) return showToast(d.error);
     setCurrentUser(d.user);
+    document.getElementById('visibilityLabel').textContent = on ? 'Public profile' : 'Private profile';
     showToast(on ? 'Profile is public' : 'Profile is private');
   };
 

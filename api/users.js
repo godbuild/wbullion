@@ -328,9 +328,10 @@ async function follow(req, res) {
   await sb.from('follows').insert({ follower_id: user.id, following_id: target.id });
   const nb = Number(target.balance || 0) + 1000;
   await sb.from('users').update({ balance: nb, updated_at: new Date().toISOString() }).eq('id', target.id);
-  await sb.from('transactions').insert({ user_id: target.id, type: 'credit', amount: 1000, description: `New follower — ${user.username}` });
-  await sb.from('action_logs').insert({ user_id: user.id, action: 'follow', meta: { target: clean } });
-  res.status(200).json({ success: true, message: `You are now following ${clean}` });
+  const { error: rewardError } = await sb.from('transactions').insert({ user_id: target.id, type: 'credit', amount: 1000, description: `New follower — ${user.username}` });
+  if (rewardError) return res.status(500).json({ error: 'Follow saved, but the reward could not be recorded. Please refresh your balance.' });
+  await sb.from('action_logs').insert({ user_id: user.id, action: 'follow', meta: { target: clean, reward: 1000 } });
+  res.status(200).json({ success: true, reward: 1000, message: `You are now following ${clean}` });
 }
 
 async function followInfo(req, res) {

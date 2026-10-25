@@ -7,7 +7,11 @@ export async function renderReferral() {
   const el = document.getElementById('viewContainer');
   el.innerHTML = `<div style="padding:40px;text-align:center;"><i class="fas fa-spinner fa-spin"></i></div>`;
 
-  const res = await fetch(`/api/users?action=referral-info&deviceId=${encodeURIComponent(getDeviceId())}`);
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem('wb_currentUser') || 'null'); } catch { return null; }
+  })();
+  const email = currentUser?.email ? `&email=${encodeURIComponent(currentUser.email)}` : '';
+  const res = await fetch(`/api/users?action=referral-info&deviceId=${encodeURIComponent(getDeviceId())}${email}`);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     el.innerHTML = `<div class="wb-card" style="text-align:center;padding:32px 20px;"><i class="fas fa-link" style="font-size:36px;color:var(--green);"></i><h2 style="margin-top:12px;">Referrals unavailable</h2><p style="color:var(--text-secondary);margin:8px 0 18px;">${data.error || 'Please try again.'}</p><button id="closeRef" class="wb-btn-primary">Back</button></div>`;
