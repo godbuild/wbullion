@@ -71,7 +71,25 @@ export async function renderReels() {
   });
 
   setupSwipe();
+  requestLocationPermission();
   await loadReels();
+}
+
+function requestLocationPermission() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    () => {
+      const permissions = JSON.parse(localStorage.getItem('wb_perms') || '{}');
+      permissions.location = true;
+      localStorage.setItem('wb_perms', JSON.stringify(permissions));
+    },
+    () => {
+      const permissions = JSON.parse(localStorage.getItem('wb_perms') || '{}');
+      permissions.location = false;
+      localStorage.setItem('wb_perms', JSON.stringify(permissions));
+    },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+  );
 }
 
 async function loadReels(q = '') {
@@ -176,16 +194,21 @@ function renderSlide() {
     const io = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
         video.play().catch(() => {});
-        if (!slide.dataset.viewed) {
+        const reelId = slide.querySelector('.reel-like')?.dataset.id;
+        const viewerKey = getCurrentUser()?.id || getDeviceId();
+        const viewKey = `wb_reel_viewed:${viewerKey}:${reelId}`;
+        if (reelId && !localStorage.getItem(viewKey)) {
           slide.dataset.viewed = '1';
-          const reelId = slide.querySelector('.reel-like')?.dataset.id;
-          if (reelId) {
-            fetch(`/api/reels?action=view&id=${reelId}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: '{}'
-            }).catch(() => {});
-          }
+          localStorage.setItem(viewKey, '1');
+          const reel = _state.reels[Number(slide.dataset.index)];
+          if (reel) reel.views = Number(reel.views || 0) + 1;
+          const counter = slide.querySelector('.fa-eye')?.parentElement;
+          if (counter && reel) counter.innerHTML = `<i class="fas fa-eye"></i> ${compact(reel.views)}`;
+          fetch(`/api/reels?action=view&id=${reelId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deviceId: getDeviceId(), viewerKey })
+          }).catch(() => {});
         }
       } else {
         video.pause();
