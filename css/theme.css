@@ -21,6 +21,32 @@ html[data-theme="dark"] {
   --nav-bg: #112717;
 }
 
+/* Keep content readable when individual views use inline light-theme colors. */
+html[data-theme="dark"] #viewContainer h1,
+html[data-theme="dark"] #viewContainer h2,
+html[data-theme="dark"] #viewContainer h3,
+html[data-theme="dark"] #viewContainer h4,
+html[data-theme="dark"] #viewContainer label,
+html[data-theme="dark"] #viewContainer p:not(.gameCard p),
+html[data-theme="dark"] #viewContainer li {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] #viewContainer .muted,
+html[data-theme="dark"] #viewContainer small,
+html[data-theme="dark"] #viewContainer [style*="text-secondary"] {
+  color: var(--text-secondary) !important;
+}
+
+html[data-theme="dark"] #viewContainer .gameCard {
+  color: #1f2937;
+}
+
+html[data-theme="dark"] #viewContainer .gameCard h3,
+html[data-theme="dark"] #viewContainer .gameCard p {
+  color: #1f2937;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
