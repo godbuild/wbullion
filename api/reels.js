@@ -78,6 +78,7 @@ async function listReels(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const user = await resolveUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (user.visibility === false) return res.status(403).json({ error: 'Private accounts cannot browse reels' });
 
   const sb = getAdminClient();
   const search = (req.query.q || '').trim();
@@ -121,8 +122,12 @@ async function singleReel(req, res) {
   const { id } = req.query;
 
   if (req.method === 'GET') {
+    const viewer = await resolveUser(req);
     const { data: reel } = await sb.from('reels').select('*').eq('id', id).eq('deleted', false).maybeSingle();
     if (!reel) return res.status(404).json({ error: 'Reel not found. Might be deleted by the creator.' });
+    if (viewer?.visibility === false && reel.user_id !== viewer.id) return res.status(403).json({ error: 'Private accounts cannot view reels' });
+    const { data: owner } = await sb.from('users').select('visibility').eq('id', reel.user_id).maybeSingle();
+    if (owner?.visibility === false && reel.user_id !== viewer?.id) return res.status(403).json({ error: 'Not Available' });
     return res.status(200).json({ reel });
   }
 
@@ -142,6 +147,7 @@ async function likeReel(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const user = await resolveUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (user.visibility === false) return res.status(403).json({ error: 'Private accounts cannot like reels' });
 
   const { id } = req.query;
   const { action } = req.body || {};

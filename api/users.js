@@ -137,6 +137,7 @@ async function profile(req, res) {
     .select('id, username, full_name, balance, badge_awarded, hoep_enabled, hoep_percentage, admin, visibility, bio, created_at')
     .eq('username', clean).is('deleted_at', null).maybeSingle();
   if (!user) return res.status(404).json({ error: 'User not found' });
+  if (viewer?.visibility === false && user.id !== viewer.id) return res.status(403).json({ error: 'Private accounts cannot view other profiles' });
   if (user.visibility === false && user.id !== viewer?.id) return res.status(403).json({ error: 'Not Available' });
   if (!viewer && user.visibility === false) return res.status(403).json({ error: 'Not Available' });
 
@@ -178,6 +179,7 @@ async function search(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const viewer = await resolveUser(req);
   if (!viewer) return res.status(401).json({ error: 'Not authenticated' });
+  if (viewer.visibility === false) return res.status(403).json({ error: 'Private accounts cannot search for users' });
   const raw = (req.query.q || '').trim().toLowerCase();
   if (!raw || raw.length < 2) return res.status(200).json({ results: [], message: 'No Matching results' });
   const q = raw.startsWith('@') ? raw : '@' + raw;
@@ -338,6 +340,7 @@ async function followInfo(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const viewer = await resolveUser(req);
   if (!viewer) return res.status(401).json({ error: 'Not authenticated' });
+  if (viewer.visibility === false) return res.status(403).json({ error: 'Private accounts cannot view connections' });
   const { username, type } = req.query;
   if (!username || !type) return res.status(400).json({ error: 'username and type required' });
   const sb = getAdminClient();
