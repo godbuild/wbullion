@@ -31,7 +31,18 @@ export async function loadBabylon() {
 
 export function createScene(canvas, { isDark }) {
   const B = window.BABYLON;
-  const engine = new B.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+  if (!canvas) throw new Error('Football canvas is unavailable');
+
+  let engine;
+  try {
+    engine = new B.Engine(canvas, false, { preserveDrawingBuffer: false, stencil: true, antialias: true });
+  } catch (primaryError) {
+    try {
+      engine = new B.Engine(canvas, false, { preserveDrawingBuffer: false, stencil: false, antialias: false, disableWebGL2Support: true });
+    } catch (fallbackError) {
+      throw new Error(`Football graphics engine unavailable: ${fallbackError?.message || primaryError?.message || 'WebGL failed'}`);
+    }
+  }
   const scene = new B.Scene(engine);
   scene.clearColor = isDark
     ? new B.Color4(0.03, 0.06, 0.12, 1)
