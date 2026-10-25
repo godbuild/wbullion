@@ -108,28 +108,34 @@ export function renderReelsCreate() {
     postBtn.textContent = 'Uploading...';
 
     try {
+      const currentUser = getCurrentUser();
       const signRes = await fetch('/api/reels?action=sign-upload', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId: getDeviceId(), email: getCurrentUser()?.email || undefined })
+        body: JSON.stringify({ deviceId: getDeviceId(), email: currentUser?.email || undefined })
       });
-      const sign = await signRes.json();
-      if (!signRes.ok) throw new Error(sign.error || 'Sign failed');
+      const signPayload = await signRes.json().catch(() => ({}));
+      if (!signRes.ok) throw new Error(signPayload.error || `Could not prepare upload (${signRes.status})`);
+      if (!signPayload.cloudName || !signPayload.apiKey || !signPayload.signature) {
+        throw new Error('Upload service is not ready. Please try again.');
+      }
 
       const form = new FormData();
       form.append('file', selectedFile);
-      form.append('api_key', sign.apiKey);
-      form.append('timestamp', sign.timestamp);
-      form.append('folder', sign.folder);
-      form.append('upload_preset', sign.uploadPreset);
-      form.append('signature', sign.signature);
+      form.append('api_key', signPayload.apiKey);
+      form.append('timestamp', String(signPayload.timestamp));
+      form.append('folder', signPayload.folder);
+      form.append('signature', signPayload.signature);
 
-      const cRes = await fetch(`https://api.cloudinary.com/v1_1/${sign.cloudName}/video/upload`, {
+      const cRes = await fetch(`https://api.cloudinary.com/v1_1/${signPayload.cloudName}/video/upload`, {
         method: 'POST',
         body: form
       });
-      const cloudinary = await cRes.json();
-      if (!cRes.ok || !cloudinary.secure_url) throw new Error(cloudinary.error?.message || 'Upload failed');
+      const cloudinary = await cRes.json().catch(() => ({}));
+      if (!cRes.ok || !cloudinary.secure_url) {
+        throw new Error(cloudinary.error?.message || `Video upload failed (${cRes.status})`);
+      }
 
       const saveRes = await fetch('/api/reels?action=create', {
         method: 'POST',
