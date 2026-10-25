@@ -93,9 +93,16 @@
       </section>
 
       <section class="panel" id="galleryPanel">
-        <h2><i class="fas fa-images"></i> Gallery</h2>
-        <p class="muted">Receipt images at a glance. Naming: <code>smsdas[last4].png</code> / <code>bars[last4].png</code></p>
-        <div id="galleryGrid" class="gallery-grid"></div>
+        <div class="panel-head">
+          <div>
+            <h2><i class="fas fa-images"></i> Gallery</h2>
+            <p class="muted">Open the receipt album to browse submitted snapshots.</p>
+          </div>
+          <button id="openGalleryButton" class="btn btn-primary" type="button" disabled>
+            <i class="fas fa-images"></i> Open Gallery
+          </button>
+        </div>
+        <div id="galleryGrid" class="gallery-grid gallery-preview"></div>
       </section>
 
       <section class="panel" id="nomineesPanel">

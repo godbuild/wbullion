@@ -216,6 +216,7 @@ function loadAdminEarnings() {
   adminFetch(`${API}/admin?action=stats`).then(r => r.json()).then(d => {
     document.getElementById('adminBalanceBig').textContent = 'NGN ' + (d.adminEarnings || 0).toLocaleString();
   });
+  renderEarningsContent();
   document.querySelectorAll('#earningsTabs button').forEach(b => {
     b.onclick = () => {
       earningsTab = b.dataset.tab;
@@ -240,7 +241,17 @@ async function renderEarningsContent() {
         </p>
       </div>`;
   } else {
-    el.innerHTML = `<p class="muted" style="margin-top:12px;">Total revenue from game losses: see above. Per-user loss details available in Statistics.</p>`;
+    const r = await adminFetch(`${API}/admin?action=earnings-history`);
+    const d = await r.json();
+    if (!r.ok) { el.innerHTML = `<p class="muted">${escapeAdminHtml(d.error || 'Unable to load earnings history')}</p>`; return; }
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;">
+        <div class="wb-card"><span class="muted">Credits</span><strong style="display:block;color:#10b981;margin-top:4px;">+NGN ${Number(d.credits || 0).toLocaleString()}</strong></div>
+        <div class="wb-card"><span class="muted">Debits</span><strong style="display:block;color:#ef4444;margin-top:4px;">-NGN ${Number(d.debits || 0).toLocaleString()}</strong></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+        ${(d.transactions || []).map(t => `<div class="wb-card" style="display:flex;justify-content:space-between;gap:12px;padding:12px;"><span>${escapeAdminHtml(t.description || 'Admin transaction')}<small class="muted" style="display:block;margin-top:3px;">${new Date(t.created_at).toLocaleString()}</small></span><strong style="color:${t.type === 'credit' ? '#10b981' : '#ef4444'}">${t.type === 'credit' ? '+' : '-'}NGN ${Number(t.amount || 0).toLocaleString()}</strong></div>`).join('') || '<p class="muted">No admin transactions yet.</p>'}
+      </div>`;
   }
 }
 
@@ -528,7 +539,7 @@ async function showBanModal() {
 let galleryImages = [];
 let galleryIndex = 0;
 
-window.openGallery = (index) => {
+window.openGallery = (index = 0) => {
   if (!galleryImages.length) return;
   galleryIndex = index;
   const modal = document.getElementById('galleryModal');
@@ -571,10 +582,14 @@ async function loadGallery() {
       p.sms_screenshot ? { src: p.sms_screenshot, label: `SMS alert · ${p.email || 'Unknown'}` } : null,
       p.receipt_screenshot ? { src: p.receipt_screenshot, label: `Receipt · ${p.email || 'Unknown'}` } : null
     ]).filter(Boolean);
-    el.innerHTML = galleryImages.length ? galleryImages.map((image, index) => `
-      <button class="gallery-item" type="button" title="${image.label.replace(/"/g, '&quot;')}" onclick="openGallery(${index})">
-        <img src="${image.src}" alt="${image.label.replace(/"/g, '&quot;')}" loading="lazy">
-      </button>`).join('') : '<p class="muted">No receipt images available</p>';
+    const button = document.getElementById('openGalleryButton');
+    if (button) {
+      button.disabled = !galleryImages.length;
+      button.onclick = () => openGallery(0);
+    }
+    el.innerHTML = galleryImages.length
+      ? `<p class="muted gallery-ready"><i class="fas fa-check-circle"></i> ${galleryImages.length} snapshot${galleryImages.length === 1 ? '' : 's'} ready to view</p>`
+      : '<p class="muted">No receipt images available</p>';
   } catch (error) {
     el.innerHTML = `<p class="muted">${error.message || 'Unable to load gallery'}</p>`;
   }
