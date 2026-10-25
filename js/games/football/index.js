@@ -85,7 +85,8 @@ async function startGame(config, takerData) {
   `;
 
   try {
-    await loadBabylon();
+    const Babylon = await loadBabylon();
+    if (!Babylon || !window.BABYLON) throw new Error('Babylon.js loaded without a global engine');
   } catch (err) {
     console.error('[football] Babylon load error', err);
     el.innerHTML = `
@@ -115,6 +116,8 @@ async function startGame(config, takerData) {
     engine = sceneObj.engine;
     scene = sceneObj.scene;
     cameras = sceneObj.cameras;
+    engine.resize();
+    requestAnimationFrame(() => engine.resize());
   } catch (err) {
     console.error('[football] createScene error', err);
     el.innerHTML = `
