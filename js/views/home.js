@@ -11,7 +11,8 @@ export function renderHome() {
   const user = getCurrentUser();
   const el = document.getElementById('viewContainer');
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const claimedToday = user?.last_claim_date === todayStr;
   const bonusAmount = user?.streak_day ? 150 + ((user.streak_day || 0)) * 50 : 150;
 
