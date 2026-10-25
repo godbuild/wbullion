@@ -656,15 +656,19 @@ document.getElementById('bcSend').onclick = async () => {
   loadBroadcasts();
 };
 
+let notificationReadersExpanded = false;
+
 async function loadNotificationReaders() {
   const el = document.getElementById('notificationReaders');
   if (!el) return;
   const r = await adminFetch(`${API}/admin?action=notification-readers`);
   const d = await r.json();
   if (!r.ok) { el.innerHTML = `<p class="muted">${d.error || 'Unable to load read receipts'}</p>`; return; }
-  const rows = d.notifications || [];
+  const rows = (d.notifications || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   if (rows.length === 0) { el.innerHTML = '<p class="muted">No user notifications have been sent yet.</p>'; return; }
-  el.innerHTML = rows.map(n => `
+
+  const visibleRows = notificationReadersExpanded ? rows : rows.slice(0, 6);
+  el.innerHTML = visibleRows.map(n => `
     <div class="broadcast-item">
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
         <strong>${escapeAdminHtml(n.title || 'Notification')}</strong>
@@ -673,6 +677,42 @@ async function loadNotificationReaders() {
       <p class="muted" style="font-size:12px;margin-top:4px;">${escapeAdminHtml(n.user?.full_name || n.user?.username || n.user?.email || 'Unknown user')} · ${escapeAdminHtml(n.user?.email || '')}</p>
       <p class="muted" style="font-size:12px;margin-top:4px;">${new Date(n.created_at).toLocaleString()}</p>
     </div>`).join('');
+
+  if (rows.length > 6 && !notificationReadersExpanded) {
+    el.insertAdjacentHTML('beforeend', '<button class="btn btn-ghost receipt-toggle" type="button">Read more</button>');
+    el.querySelector('.receipt-toggle').onclick = () => {
+      notificationReadersExpanded = true;
+      renderNotificationReaders(rows, el);
+    };
+  } else if (notificationReadersExpanded && rows.length > 6) {
+    el.insertAdjacentHTML('beforeend', '<button class="btn btn-ghost receipt-toggle" type="button">Hide</button>');
+    el.querySelector('.receipt-toggle').onclick = () => {
+      notificationReadersExpanded = false;
+      renderNotificationReaders(rows, el);
+    };
+  }
+}
+
+function renderNotificationReaders(rows, el) {
+  const visibleRows = notificationReadersExpanded ? rows : rows.slice(0, 6);
+  el.innerHTML = visibleRows.map(n => `
+    <div class="broadcast-item">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;">
+        <strong>${escapeAdminHtml(n.title || 'Notification')}</strong>
+        <span class="status-pill ${n.read ? 'confirmed' : 'pending'}">${n.read ? 'Read' : 'Unread'}</span>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:4px;">${escapeAdminHtml(n.user?.full_name || n.user?.username || n.user?.email || 'Unknown user')} · ${escapeAdminHtml(n.user?.email || '')}</p>
+      <p class="muted" style="font-size:12px;margin-top:4px;">${new Date(n.created_at).toLocaleString()}</p>
+    </div>`).join('');
+  const toggle = document.createElement('button');
+  toggle.className = 'btn btn-ghost receipt-toggle';
+  toggle.type = 'button';
+  toggle.textContent = notificationReadersExpanded ? 'Hide' : 'Read more';
+  toggle.onclick = () => {
+    notificationReadersExpanded = !notificationReadersExpanded;
+    renderNotificationReaders(rows, el);
+  };
+  el.appendChild(toggle);
 }
 
 function escapeAdminHtml(value) {
