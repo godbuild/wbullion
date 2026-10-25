@@ -98,7 +98,6 @@ function renderSlide() {
   wrap.innerHTML = _state.reels.map((r, i) => {
     const user = getCurrentUser();
     const liked = (r.likes || []).includes(user?.id);
-    const disliked = (r.dislikes || []).includes(user?.id);
     const isOwner = r.user_id === user?.id;
     const desc = r.description || '';
     const descShort = desc.length > 90 ? desc.slice(0, 90) + '…' : desc;
@@ -116,12 +115,9 @@ function renderSlide() {
               ${(r.username || 'U')[1]?.toUpperCase() || 'U'}
             </div>
           </button>
-          <button class="reel-like ${liked ? 'liked' : ''}" data-id="${r.id}" data-index="${i}" style="background:none;border:none;color:${liked ? '#3ba072' : 'white'};cursor:pointer;font-size:26px;display:flex;flex-direction:column;align-items:center;gap:2px;">
+          <button class="reel-like ${liked ? 'liked' : ''}" aria-label="${liked ? 'Unlike reel' : 'Like reel'}" data-id="${r.id}" data-index="${i}" style="background:none;border:none;color:${liked ? '#3ba072' : 'white'};cursor:pointer;font-size:26px;display:flex;flex-direction:column;align-items:center;gap:2px;">
             <i class="fas fa-thumbs-up"></i>
             <span style="font-size:12px;">${compact((r.likes || []).length)}</span>
-          </button>
-          <button class="reel-dislike" data-id="${r.id}" data-index="${i}" style="background:none;border:none;color:${disliked ? '#ef4444' : 'white'};cursor:pointer;font-size:26px;">
-            <i class="fas fa-thumbs-down"></i>
           </button>
           ${isOwner ? `<button class="reel-delete" data-id="${r.id}" style="background:none;border:none;color:white;cursor:pointer;font-size:22px;"><i class="fas fa-trash"></i></button>` : ''}
         </div>
@@ -142,6 +138,25 @@ function renderSlide() {
   wrap.querySelectorAll('.reel-slide').forEach(slide => {
     const video = slide.querySelector('video');
     const playIcon = slide.querySelector('.reel-play-icon');
+    let lastTapAt = 0;
+
+    slide.addEventListener('touchend', (e) => {
+      if (e.target.closest('button') || e.target.closest('.reel-more')) return;
+      const now = Date.now();
+      if (now - lastTapAt < 300) {
+        e.preventDefault();
+        toggleDislike(slide.querySelector('.reel-like'));
+        lastTapAt = 0;
+      } else {
+        lastTapAt = now;
+      }
+    }, { passive: false });
+
+    slide.addEventListener('dblclick', (e) => {
+      if (e.target.closest('button') || e.target.closest('.reel-more')) return;
+      e.preventDefault();
+      toggleDislike(slide.querySelector('.reel-like'));
+    });
 
     slide.addEventListener('click', (e) => {
       if (e.target.closest('button') || e.target.closest('.reel-more')) return;
@@ -180,7 +195,6 @@ function renderSlide() {
   });
 
   wrap.querySelectorAll('.reel-like').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); toggleLike(btn); });
-  wrap.querySelectorAll('.reel-dislike').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); toggleDislike(btn); });
   wrap.querySelectorAll('.reel-profile').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); navigate(`/profile/${btn.dataset.username}`); });
   wrap.querySelectorAll('.reel-delete').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); deleteReel(btn.dataset.id); });
   wrap.querySelectorAll('.reel-more').forEach(el => el.onclick = (e) => {
@@ -233,6 +247,7 @@ async function toggleLike(btn) {
   const id = btn.dataset.id;
   const index = Number(btn.dataset.index);
   const user = getCurrentUser();
+  if (!user?.id) return showToast('Please log in to react to reels');
   const reel = _state.reels[index];
   const wasLiked = (reel.likes || []).includes(user.id);
 
@@ -259,6 +274,7 @@ async function toggleDislike(btn) {
   const id = btn.dataset.id;
   const index = Number(btn.dataset.index);
   const user = getCurrentUser();
+  if (!user?.id) return showToast('Please log in to react to reels');
   const reel = _state.reels[index];
   const wasDisliked = (reel.dislikes || []).includes(user.id);
 
