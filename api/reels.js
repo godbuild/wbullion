@@ -29,12 +29,13 @@ async function signUpload(req, res) {
 
   const timestamp = Math.floor(Date.now() / 1000);
   const folder = 'wbullion/reels';
-  const uploadPreset = 'wbullion_signed';
-  const paramsToSign = `folder=${folder}&timestamp=${timestamp}&upload_preset=${uploadPreset}${apiSecret}`;
-  const signature = crypto.createHash('sha1').update(paramsToSign).digest('hex');
+  // Signed uploads do not need an upload preset. Requiring a hard-coded preset
+  // caused uploads to fail when that preset was missing or configured unsigned.
+  const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
+  const signature = crypto.createHash('sha1').update(paramsToSign + apiSecret).digest('hex');
 
   res.status(200).json({
-    cloudName, apiKey, timestamp, folder, uploadPreset, signature,
+    cloudName, apiKey, timestamp, folder, signature,
     maxBytes: 100 * 1024 * 1024
   });
 }
