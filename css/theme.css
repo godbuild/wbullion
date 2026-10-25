@@ -28,6 +28,12 @@ html, body {
   overflow-x: hidden;
 }
 
+.wb-switch { position: relative; min-height: 28px; }
+.wb-switch-track { width: 46px; height: 26px; border-radius: 999px; background: var(--border-color); padding: 3px; transition: background .2s ease; }
+.wb-switch-thumb { display: block; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s ease; }
+.wb-switch input:checked + .wb-switch-track { background: var(--green); }
+.wb-switch input:checked + .wb-switch-track .wb-switch-thumb { transform: translateX(20px); }
+
 body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg-secondary);
