@@ -1,11 +1,8 @@
 {
-  "redirects": [
-    { "source": "/admin.html", "destination": "/admin", "permanent": false }
-  ],
   "rewrites": [
     { "source": "/ref/:code", "destination": "/index.html" },
     { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/:path*", "destination": "/index.html" }
+    { "source": "/((?!api/|images/|css/|js/|favicon|admin\\.html).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
