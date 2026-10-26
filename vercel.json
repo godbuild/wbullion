@@ -2,7 +2,7 @@
   "rewrites": [
     { "source": "/ref/:code", "destination": "/index.html" },
     { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/((?!api/|images/|css/|js/|favicon|admin\\.html).*)", "destination": "/index.html" }
+    { "source": "/:path*", "destination": "/index.html" }
   ],
   "headers": [
     {
