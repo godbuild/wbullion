@@ -34,7 +34,7 @@ export function renderHome() {
       </div>
       <div class="home-balance-actions">
         <button id="toggleBalanceBtn" type="button" aria-label="Hide balance" aria-pressed="false"><i class="fas fa-eye"></i></button>
-        <button id="balanceBtn" type="button" aria-label="View balance history">History</button>
+        <button id="balanceBtn" type="button" aria-label="View balance history"><i class="fas fa-clock-rotate-left" aria-hidden="true"></i></button>
       </div>
     </section>
 
