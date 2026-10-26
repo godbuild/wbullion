@@ -215,6 +215,8 @@ let earningsTab = 'losses';
 function loadAdminEarnings() {
   adminFetch(`${API}/admin?action=stats`).then(r => r.json()).then(d => {
     document.getElementById('adminBalanceBig').textContent = 'NGN ' + (d.adminEarnings || 0).toLocaleString();
+    const activeIndicator = document.getElementById('activeUsersIndicator');
+    if (activeIndicator) activeIndicator.textContent = `${d.activeUsers || 0} active`;
   });
   renderEarningsContent();
   document.querySelectorAll('#earningsTabs button').forEach(b => {
@@ -404,7 +406,7 @@ async function loadUsers(q = '') {
     <div class="user-row">
       <div class="user-avatar">${(u.username || 'U')[1]?.toUpperCase() || 'U'}</div>
       <div class="user-info">
-        <div class="uname">${u.full_name} <span class="muted">${u.username}</span>${u.admin ? ' <span class="status-pill confirmed">Admin</span>' : ''}${u.banned ? ' <span class="status-pill rejected">Banned</span>' : ''}${u.badge_awarded ? ' <i class="fas fa-check-circle" style="color:#3b82f6"></i>' : ''}</div>
+        <div class="uname"><span class="user-presence ${Date.now() - new Date(u.updated_at || 0).getTime() <= 15 * 60 * 1000 ? 'online' : ''}" title="${Date.now() - new Date(u.updated_at || 0).getTime() <= 15 * 60 * 1000 ? 'Active recently' : 'Not active recently'}"></span>${u.full_name} <span class="muted">${u.username}</span>${u.admin ? ' <span class="status-pill confirmed">Admin</span>' : ''}${u.banned ? ' <span class="status-pill rejected">Banned</span>' : ''}${u.badge_awarded ? ' <i class="fas fa-check-circle" style="color:#3b82f6"></i>' : ''}</div>
         <div class="uemail">${u.email} · Ref: ${u.unique_id} · NGN ${Math.floor(u.balance).toLocaleString()}</div>
       </div>
       <div class="user-actions">

@@ -181,9 +181,11 @@ async function earningsHistory(req, res) {
 async function stats(req, res) {
   if (!(await requireAdmin(req, res))) return;
   const sb = getAdminClient();
-  const [{ count: totalUsers }, { count: activatedUsers }, { count: pendingPayments }, { data: txData }, { data: lossLogs }] = await Promise.all([
+  const activeSince = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const [{ count: totalUsers }, { count: activatedUsers }, { count: activeUsers }, { count: pendingPayments }, { data: txData }, { data: lossLogs }] = await Promise.all([
     sb.from('users').select('*', { count: 'exact', head: true }).is('deleted_at', null),
     sb.from('users').select('*', { count: 'exact', head: true }).eq('activated', true).is('deleted_at', null),
+    sb.from('users').select('*', { count: 'exact', head: true }).gte('updated_at', activeSince).is('deleted_at', null),
     sb.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     sb.from('transactions').select('amount, type, description, game_name').eq('type', 'debit'),
     sb.from('action_logs').select('meta, action').eq('action', 'game_loss')
@@ -203,6 +205,7 @@ async function stats(req, res) {
   res.status(200).json({
     totalUsers: totalUsers || 0,
     activatedUsers: activatedUsers || 0,
+    activeUsers: activeUsers || 0,
     pendingPayments: pendingPayments || 0,
     adminEarnings: Math.max(adminBalance, gameLosses),
     gameLossRevenue: gameLosses,
@@ -219,7 +222,7 @@ async function usersList(req, res) {
   const { q, limit = 100, offset = 0 } = req.query;
 
   let query = sb.from('users')
-    .select('id, email, username, full_name, unique_id, balance, referral_earnings, activated, banned, admin, badge_awarded, created_at, streak_day, devices, last_claim_date')
+    .select('id, email, username, full_name, unique_id, balance, referral_earnings, activated, banned, admin, badge_awarded, created_at, updated_at, streak_day, devices, last_claim_date')
     .is('deleted_at', null).order('created_at', { ascending: false })
     .range(Number(offset), Number(offset) + Number(limit) - 1);
 

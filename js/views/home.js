@@ -21,15 +21,21 @@ export function renderHome() {
       <h2 id="helloBtn" style="font-size:20px;font-weight:bold;cursor:pointer;">
         Hello, ${(user?.full_name || 'User').split(' ')[0]}
       </h2>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <button id="searchPeopleBtn" aria-label="Search people" style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);cursor:pointer;font-size:16px;">
-          <i class="fas fa-search"></i>
-        </button>
-        <button id="balanceBtn" style="background:linear-gradient(135deg,#1f2937,#374151);color:white;padding:8px 16px;border-radius:20px;font-weight:bold;font-size:14px;cursor:pointer;border:none;">
-          ${money(user?.balance || 0)}
-        </button>
-      </div>
+      <button id="searchPeopleBtn" aria-label="Search people" style="width:38px;height:38px;border-radius:50%;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);cursor:pointer;font-size:16px;">
+        <i class="fas fa-search"></i>
+      </button>
     </div>
+
+    <section class="home-balance-card" aria-labelledby="homeBalanceLabel">
+      <div>
+        <p id="homeBalanceLabel" class="home-balance-label">Available balance</p>
+        <p id="homeBalanceValue" class="home-balance-value">${money(user?.balance || 0)}</p>
+      </div>
+      <div class="home-balance-actions">
+        <button id="toggleBalanceBtn" type="button" aria-label="Hide balance" aria-pressed="false"><i class="fas fa-eye"></i></button>
+        <button id="balanceBtn" type="button" aria-label="View balance history">History</button>
+      </div>
+    </section>
 
     ${!claimedToday ? `
       <div style="background:linear-gradient(177deg,#000,#3ba072);padding:20px;border-radius:16px;color:white;margin-bottom:20px;">
@@ -87,6 +93,13 @@ export function renderHome() {
 
   document.getElementById('helloBtn').addEventListener('click', () => navigate('/home/streak'));
   document.getElementById('balanceBtn').addEventListener('click', () => navigate('/home/balance'));
+  document.getElementById('toggleBalanceBtn').addEventListener('click', (event) => {
+    const hidden = event.currentTarget.getAttribute('aria-pressed') === 'true';
+    event.currentTarget.setAttribute('aria-pressed', String(!hidden));
+    event.currentTarget.setAttribute('aria-label', hidden ? 'Hide balance' : 'Reveal balance');
+    event.currentTarget.innerHTML = `<i class="fas fa-eye${hidden ? '' : '-slash'}"></i>`;
+    document.getElementById('homeBalanceValue').textContent = hidden ? '${money(user?.balance || 0)}' : '••••••';
+  });
   document.getElementById('searchPeopleBtn').addEventListener('click', () => navigate('/search'));
   document.getElementById('goGames').addEventListener('click', () => navigate('/games'));
   document.getElementById('goReels').addEventListener('click', () => navigate('/reels'));
