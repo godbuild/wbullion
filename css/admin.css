@@ -111,6 +111,9 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); co
 /* Users */
 .users-list { display: flex; flex-direction: column; gap: 8px; max-height: 500px; overflow-y: auto; }
 .user-row { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: white; }
+.active-users-indicator { display:inline-flex; align-items:center; margin-left:8px; padding:3px 8px; border-radius:999px; background:rgba(16,185,129,.12); color:#059669; font-size:11px; font-weight:700; vertical-align:middle; }
+.user-presence { display:inline-block; width:8px; height:8px; margin-right:6px; border-radius:50%; background:#94a3b8; vertical-align:middle; }
+.user-presence.online { background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.14); }
 .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: #dbfedd; color: #1f2937; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 .user-info { flex: 1; }
 .user-info .uname { font-weight: 600; font-size: 14px; }
