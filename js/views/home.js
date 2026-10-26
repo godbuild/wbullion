@@ -15,6 +15,7 @@ export function renderHome() {
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const claimedToday = user?.last_claim_date === todayStr;
   const bonusAmount = user?.streak_day ? 150 + ((user.streak_day || 0)) * 50 : 150;
+  const balanceText = money(user?.balance || 0);
 
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -29,7 +30,7 @@ export function renderHome() {
     <section class="home-balance-card" aria-labelledby="homeBalanceLabel">
       <div>
         <p id="homeBalanceLabel" class="home-balance-label">Available balance</p>
-        <p id="homeBalanceValue" class="home-balance-value">${money(user?.balance || 0)}</p>
+        <p id="homeBalanceValue" class="home-balance-value">${balanceText}</p>
       </div>
       <div class="home-balance-actions">
         <button id="toggleBalanceBtn" type="button" aria-label="Hide balance" aria-pressed="false"><i class="fas fa-eye"></i></button>
@@ -98,7 +99,7 @@ export function renderHome() {
     event.currentTarget.setAttribute('aria-pressed', String(!hidden));
     event.currentTarget.setAttribute('aria-label', hidden ? 'Hide balance' : 'Reveal balance');
     event.currentTarget.innerHTML = `<i class="fas fa-eye${hidden ? '' : '-slash'}"></i>`;
-    document.getElementById('homeBalanceValue').textContent = hidden ? '${money(user?.balance || 0)}' : '••••••';
+    document.getElementById('homeBalanceValue').textContent = hidden ? balanceText : '••••••';
   });
   document.getElementById('searchPeopleBtn').addEventListener('click', () => navigate('/search'));
   document.getElementById('goGames').addEventListener('click', () => navigate('/games'));
