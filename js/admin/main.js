@@ -646,6 +646,8 @@ document.getElementById('bcSend').onclick = async () => {
     kind: document.getElementById('bcKind').value,
     title: document.getElementById('bcTitle').value,
     body_html: document.getElementById('bcBody').innerHTML,
+    cover_image: document.getElementById('bcImage').value.trim() || null,
+    background_image: document.getElementById('bcBackgroundImage').value.trim() || null,
     publish: document.getElementById('bcPublish').checked,
     sendAsNotification: document.getElementById('bcSendNotif').checked
   };

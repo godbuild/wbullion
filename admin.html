@@ -137,11 +137,16 @@
             <button data-cmd="fontSizeDown">A-</button>
             <input type="color" id="bcColor" title="Text color">
           </div>
-          <div id="bcBody" class="editor" contenteditable="true" placeholder="Write broadcast body..."></div>
-        </div>
+<div id="bcBody" class="editor" contenteditable="true" placeholder="Write broadcast body..."></div>
+          </div>
+          <div class="form-row">
+            <label>Popup image URL <input id="bcImage" type="url" placeholder="https://..." autocomplete="off"></label>
+            <label>Background image URL <input id="bcBackgroundImage" type="url" placeholder="Optional https://..." autocomplete="off"></label>
+          </div>
         <div class="form-row inline">
           <label><input type="checkbox" id="bcPublish"> Publish now</label>
-          <label><input type="checkbox" id="bcSendNotif"> Also send as general notification to all users</label>
+          <label><input type="checkbox" id="bcSendNotif"> Also send text as general notification to all users</label>
+          <p class="muted" style="font-size:12px;margin:4px 0 0;">Full-screen images appear only in the popup. Only the broadcast text is sent as a notification when enabled.</p>
         </div>
         <button class="btn btn-primary" id="bcSend">Send Broadcast</button>
         <div id="broadcastHistory" class="broadcast-history"></div>

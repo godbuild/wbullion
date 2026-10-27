@@ -8,6 +8,7 @@ import { initWWaiter, wwaiterCopy } from './wwaiter.js';
 import { initRealtime, stopRealtime } from './realtime.js';
 import { loadUserFromServer, getCurrentUser, isBanned } from './auth.js';
 import { startNotifPolling, stopNotifPolling } from './notif-poller.js';
+import { showLatestBroadcast } from './broadcast-popup.js';
 
 import { renderLogin } from './views/login.js';
 import { renderSignup } from './views/signup.js';
