@@ -368,6 +368,8 @@ html[data-reels-theme="dark"] .bottom-nav { display: none !important; }
 #wwaiterRoot { user-select: none; -webkit-user-select: none; }
 
 /* Notification dot pulse */
+.notification-button { overflow: visible; }
+.notification-indicator { position:absolute; top:2px; right:2px; width:9px; height:9px; border-radius:50%; background:#ef4444; border:2px solid var(--bg-primary); box-shadow:0 0 0 2px rgba(239,68,68,.18); }
 .notifDot { animation: notifPulse 1.2s ease-in-out infinite; }
 @keyframes notifPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 

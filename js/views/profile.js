@@ -38,8 +38,9 @@ export async function renderProfile(username) {
           <div style="display:flex;gap:8px;align-items:center;">
             ${user.isOwner ? `
               <button id="editBtn" class="wb-close" style="font-size:18px;"><i class="fas fa-pencil"></i></button>
-              <button id="notifBtn" class="wb-close" style="font-size:18px;position:relative;">
+              <button id="notifBtn" class="wb-close notification-button" aria-label="Notifications" style="font-size:18px;position:relative;">
                 <i class="fas fa-bell"></i>
+                <span id="notificationIndicator" class="notification-indicator" aria-label="Unread notifications" hidden></span>
               </button>
             ` : ''}
             <button id="closeProfile" class="wb-close" style="font-size:18px;"><i class="fas fa-close"></i></button>
@@ -134,6 +135,14 @@ export async function renderProfile(username) {
     });
 
     document.getElementById('notifBtn')?.addEventListener('click', () => navigate('/profile/notifications'));
+    const notificationIndicator = document.getElementById('notificationIndicator');
+    fetch(`/api/notifications?action=list&deviceId=${encodeURIComponent(deviceId)}`)
+      .then(response => response.ok ? response.json() : null)
+      .then(data => {
+        const unread = Object.values(data?.counts || {}).some(count => count.unread > 0);
+        if (notificationIndicator) notificationIndicator.hidden = !unread;
+      })
+      .catch(() => {});
     document.getElementById('editBtn')?.addEventListener('click', () => showEditModal(user));
 
     document.querySelectorAll('.tileDel').forEach(b => b.onclick = async (e) => {
