@@ -640,14 +640,48 @@ document.querySelectorAll('#bcToolbar button').forEach(b => {
   };
 });
 document.getElementById('bcColor').oninput = (e) => document.execCommand('foreColor', false, e.target.value);
+const bcKind = document.getElementById('bcKind');
+const bcImageOptions = document.getElementById('bcImageOptions');
+const syncBroadcastImageOptions = () => {
+  const enabled = bcKind.value === 'fullscreen';
+  bcImageOptions.hidden = !enabled;
+  if (!enabled) {
+    document.getElementById('bcImageFile').value = '';
+    document.getElementById('bcImage').value = '';
+  }
+};
+bcKind.addEventListener('change', syncBroadcastImageOptions);
+syncBroadcastImageOptions();
+
+async function uploadBroadcastImage(file) {
+  if (!file) return null;
+  const signResponse = await adminFetch(`${API}/admin?action=broadcast-upload`, { method: 'POST', body: JSON.stringify({ contentType: file.type }) });
+  const signature = await signResponse.json();
+  if (!signResponse.ok) throw new Error(signature.error || 'Unable to prepare image upload');
+  const form = new FormData();
+  form.append('file', file);
+  form.append('api_key', signature.apiKey);
+  form.append('timestamp', signature.timestamp);
+  form.append('folder', signature.folder);
+  form.append('signature', signature.signature);
+  const uploadResponse = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method: 'POST', body: form });
+  const uploaded = await uploadResponse.json();
+  if (!uploadResponse.ok) throw new Error(uploaded.error?.message || 'Image upload failed');
+  return uploaded.secure_url;
+}
 
 document.getElementById('bcSend').onclick = async () => {
+  const sendButton = document.getElementById('bcSend');
+  sendButton.disabled = true;
+  try {
+  const kind = document.getElementById('bcKind').value;
+  const imageUrl = kind === 'fullscreen' ? await uploadBroadcastImage(document.getElementById('bcImageFile').files[0]) : null;
   const payload = {
-    kind: document.getElementById('bcKind').value,
+    kind,
     title: document.getElementById('bcTitle').value,
     body_html: document.getElementById('bcBody').innerHTML,
-    cover_image: document.getElementById('bcImage').value.trim() || null,
-    background_image: document.getElementById('bcBackgroundImage').value.trim() || null,
+    cover_image: imageUrl,
+    background_image: null,
     publish: document.getElementById('bcPublish').checked,
     sendAsNotification: document.getElementById('bcSendNotif').checked
   };
@@ -658,6 +692,11 @@ document.getElementById('bcSend').onclick = async () => {
   document.getElementById('bcTitle').value = '';
   document.getElementById('bcBody').innerHTML = '';
   loadBroadcasts();
+  } catch (error) {
+    toast(error.message || 'Unable to send broadcast');
+  } finally {
+    sendButton.disabled = false;
+  }
 };
 
 let notificationReadersExpanded = false;

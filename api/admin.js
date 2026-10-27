@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 import { getAdminClient } from '../lib/supabase.js';
 import {
   getAdminDeviceId, getAdminConfig, setAdminConfig, createSession,
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
     case 'receipt':          return receipt(req, res);
     case 'send-email':       return sendEmail(req, res);
     case 'broadcast':        return broadcast(req, res);
+    case 'broadcast-upload': return broadcastUpload(req, res);
     case 'notification-readers': return notificationReaders(req, res);
     case 'badges':           return badges(req, res);
     case 'statistics':       return statistics(req, res);
@@ -539,6 +541,22 @@ async function sendEmail(req, res) {
 }
 
 // ---------- broadcast ----------
+async function broadcastUpload(req, res) {
+  if (!(await requireAdmin(req, res))) return;
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  if (!cloudName || !apiKey || !apiSecret) return res.status(500).json({ error: 'Cloudinary not configured' });
+  const contentType = String(req.body?.contentType || '');
+  if (!contentType.startsWith('image/')) return res.status(400).json({ error: 'An image file is required' });
+  const timestamp = Math.floor(Date.now() / 1000);
+  const folder = 'wbullion/broadcasts';
+  const paramsToSign = `folder=${folder}&timestamp=${timestamp}`;
+  const signature = crypto.createHash('sha1').update(paramsToSign + apiSecret).digest('hex');
+  return res.status(200).json({ cloudName, apiKey, timestamp, folder, signature });
+}
+
 async function broadcast(req, res) {
   if (!(await requireAdmin(req, res))) return;
   const sb = getAdminClient();

@@ -139,9 +139,10 @@
           </div>
 <div id="bcBody" class="editor" contenteditable="true" placeholder="Write broadcast body..."></div>
           </div>
-          <div class="form-row">
-            <label>Popup image URL <input id="bcImage" type="url" placeholder="https://..." autocomplete="off"></label>
-            <label>Background image URL <input id="bcBackgroundImage" type="url" placeholder="Optional https://..." autocomplete="off"></label>
+          <div id="bcImageOptions" class="form-row" hidden>
+            <label>Popup image <input id="bcImageFile" type="file" accept="image/*"></label>
+            <p class="muted" style="font-size:12px;margin:4px 0 0;">Images are available only for full-screen popups. Bottom popups are text-only.</p>
+            <input id="bcImage" type="hidden">
           </div>
         <div class="form-row inline">
           <label><input type="checkbox" id="bcPublish"> Publish now</label>
