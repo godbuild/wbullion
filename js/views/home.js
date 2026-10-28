@@ -137,7 +137,7 @@ async function loadHomeSections() {
     if (peopleEl) peopleEl.innerHTML = people.length ? people.slice(0, 4).map(person => `
       <button class="wb-card suggested-person" data-username="${person.username}" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px;margin-bottom:8px;background:var(--bg-primary);border:1px solid var(--border-color);cursor:pointer;text-align:left;">
         <span style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#dbfedd;font-weight:700;color:#1f2937;">${(person.username || 'U')[1]?.toUpperCase() || 'U'}</span>
-        <span><strong>${person.full_name || person.username}</strong><small style="display:block;color:var(--text-secondary);">${person.username}${person.badge_awarded ? ' ✓' : ''}</small></span>
+        <span><strong style="color:var(--text-primary);">${person.full_name || person.username}</strong><small style="display:block;color:var(--text-secondary);">${person.username}${person.badge_awarded ? ' ✓' : ''}</small></span>
       </button>`).join('') : '<p style="font-size:14px;color:var(--text-secondary);">No Suggested People To Follow for now.</p>';
     document.querySelectorAll('.suggested-person').forEach(btn => btn.onclick = () => navigate(`/profile/${encodeURIComponent(btn.dataset.username)}`));
 
