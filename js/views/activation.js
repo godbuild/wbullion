@@ -115,10 +115,6 @@ async function handleSubmitPayment() {
     return showAlert('Each screenshot must be under 2 MB');
   }
 
-  if ('Notification' in window && Notification.permission === 'default') {
-    await Notification.requestPermission();
-  }
-
   showToast('Submitting payment...');
   try {
     const payload = {
@@ -137,6 +133,9 @@ async function handleSubmitPayment() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Submit failed');
     await showAlert('Payment submitted! Admin will review shortly.', 'Submitted');
+    if ('Notification' in window && Notification.permission === 'default') {
+      await Notification.requestPermission();
+    }
     document.getElementById('uploadSection').style.display = 'none';
   } catch (err) {
     showAlert(err.message, 'Error');
