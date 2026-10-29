@@ -242,6 +242,33 @@ body {
     --border-color: #37513f;
     --nav-bg: #112717;
   }
+
+  html[data-theme="system"] #viewContainer h1,
+  html[data-theme="system"] #viewContainer h2,
+  html[data-theme="system"] #viewContainer h3,
+  html[data-theme="system"] #viewContainer h4,
+  html[data-theme="system"] #viewContainer label,
+  html[data-theme="system"] #viewContainer p,
+  html[data-theme="system"] #viewContainer li,
+  html[data-theme="system"] #viewContainer > div > .wb-card,
+  html[data-theme="system"] #viewContainer > button.wb-card,
+  html[data-theme="system"] #viewContainer > div > button.wb-card,
+  html[data-theme="system"] #viewContainer #visibilityPanel,
+  html[data-theme="system"] #viewContainer #visibilityPanel span,
+  html[data-theme="system"] #viewContainer #visibilityPanel p {
+    color: var(--text-primary) !important;
+  }
+
+  html[data-theme="system"] #viewContainer .wb-card i,
+  html[data-theme="system"] #viewContainer button.wb-card i {
+    color: var(--text-secondary) !important;
+  }
+
+  html[data-theme="system"] #viewContainer .muted,
+  html[data-theme="system"] #viewContainer small,
+  html[data-theme="system"] #viewContainer [style*="text-secondary"] {
+    color: var(--text-secondary) !important;
+  }
 }
 
 .badge-mark { width: 82px; height: 82px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(145deg, #60a5fa, #2563eb); color: #fff; box-shadow: 0 8px 22px rgba(37, 99, 235, .25); font-size: 38px; }
