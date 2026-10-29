@@ -22,7 +22,7 @@ export function renderWithdrawal() {
     </div>
 
     ${!isOpen ? `
-      <div class="wb-card" style="background:#fef3c7;color:#92400e;margin-bottom:16px;">
+      <div class="wb-card withdrawal-closed-notice" style="background:#fef3c7;color:#92400e;margin-bottom:16px;">
         <p style="font-weight:600;"><i class="fas fa-lock"></i> Withdrawals are closed</p>
         <p style="font-size:13px;margin-top:6px;">Opens on December 1, 2026</p>
       </div>
