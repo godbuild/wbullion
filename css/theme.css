@@ -271,6 +271,17 @@ body {
   }
 }
 
+.home-balance-card,
+.home-balance-card p,
+.home-balance-card button,
+#goGames,
+#goGames span,
+#goReels,
+#goReels span { color:#1f2937 !important; }
+.home-balance-card .home-balance-label,
+#goGames span:last-child,
+#goReels span:last-child { color:#475569 !important; }
+
 .badge-mark { width: 82px; height: 82px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(145deg, #60a5fa, #2563eb); color: #fff; box-shadow: 0 8px 22px rgba(37, 99, 235, .25); font-size: 38px; }
 
 /* ---------- Form controls ---------- */
