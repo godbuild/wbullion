@@ -17,7 +17,7 @@ export function renderGames() {
       <p data-games-balance style="font-size:26px;font-weight:bold;">${money(user?.balance || 0)}</p>
     </div>
 
-    <p style="color:var(--text-secondary);font-size:13px;margin:-10px 0 16px;">Choose a game to start. All games use a clean silver presentation.</p>
+    <p style="color:var(--text-secondary);font-size:13px;margin:-10px 0 16px;">Choose a game to start.</p>
 
     <div style="display:flex;flex-direction:column;gap:16px;">
       <div class="gameCard" data-game="football" style="background:linear-gradient(145deg,#f8fafc,#cbd5e1);padding:24px;border-radius:16px;color:#1f2937;cursor:pointer;border:1px solid #94a3b8;box-shadow:0 8px 24px rgba(15,23,42,.12);">
