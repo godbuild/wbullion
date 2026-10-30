@@ -60,6 +60,7 @@ export async function renderNotifications(category = 'all') {
                 <span style="font-size:11px;color:var(--text-secondary);">${new Date(n.created_at).toLocaleString()}</span>
                 <div style="display:flex;gap:12px;align-items:center;">
                   <button class="readMore" data-id="${n.id}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">Read more</button>
+                  ${n.category === 'profile_view' && n.meta?.profileUsername ? `<button class="viewProfileFromNotification" data-username="${escapeHtml(n.meta.profileUsername)}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">View profile</button>` : ''}
                   <button class="deleteNotification" data-id="${n.id}" aria-label="Delete notification" style="border:0;background:none;color:#ef4444;font-weight:700;cursor:pointer;">Delete</button>
                 </div>
               </div>
@@ -101,6 +102,14 @@ export async function renderNotifications(category = 'all') {
         } catch (err) {
           showAlert(err.message || 'Failed to delete notification', 'Error');
         }
+      };
+    });
+
+    document.querySelectorAll('.viewProfileFromNotification').forEach(button => {
+      button.onclick = async () => {
+        const notification = list.find(item => String(item.id) === String(button.closest('[data-id]')?.dataset.id));
+        if (notification && !notification.read) await apiFetch('/api/notifications?action=read', { method:'POST', body: JSON.stringify({ deviceId:getDeviceId(), id:notification.id }) });
+        navigate(`/profile/${encodeURIComponent(button.dataset.username)}`);
       };
     });
 
