@@ -53,7 +53,7 @@ html[data-theme="dark"] #viewContainer .gameCard {
 
 .home-balance-card { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 20px; padding:20px; border-radius:18px; background:linear-gradient(145deg,#f8fafc,#cbd5e1); border:1px solid #94a3b8; box-shadow:0 8px 24px rgba(15,23,42,.12); color:#1f2937; }
 .home-balance-label { margin:0 0 6px; font-size:13px; color:#475569; }
-.home-balance-value { margin:0; font-size:26px; font-weight:800; letter-spacing:.02em; color:#1f2937 !important; }
+.home-balance-value { margin:0; font-size:clamp(18px, 7vw, 26px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:800; letter-spacing:.02em; color:#1f2937 !important; }
 .home-balance-card .home-balance-label { color:#475569 !important; }
 .home-balance-card .home-balance-value { color:#1f2937 !important; }
 .home-balance-actions { display:flex; align-items:center; gap:8px; }

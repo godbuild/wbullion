@@ -15,6 +15,7 @@ export default async function handler(req, res) {
     case 'create':   return createTask(req, res);
     case 'list':     return listTasks(req, res);
     case 'complete': return completeTask(req, res);
+    case 'delete':   return deleteTask(req, res);
     default: return res.status(400).json({ error: 'Unknown tasks action' });
   }
 }
@@ -66,6 +67,18 @@ async function listTasks(req, res) {
     .order('created_at', { ascending: false }).limit(30);
   const tasks = (data || []).filter(t => !skipIds.has(t.id) && t.creator_id !== user.id);
   res.status(200).json({ tasks });
+}
+
+async function deleteTask(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const user = await resolveUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  const { taskId } = req.body || {};
+  if (!taskId) return res.status(400).json({ error: 'taskId required' });
+  const sb = getAdminClient();
+  const { error } = await sb.from('tasks').update({ deleted: true, active: false }).eq('id', taskId).eq('creator_id', user.id);
+  if (error) return res.status(500).json({ error: error.message });
+  return res.status(200).json({ success: true });
 }
 
 async function completeTask(req, res) {

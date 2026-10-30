@@ -387,7 +387,7 @@ async function trackView(req, res) {
   const { data: existing } = await sb.from('profile_views').select('id').eq('viewer_id', viewer.id).eq('viewed_id', target.id).gte('viewed_at', dayStart.toISOString()).maybeSingle();
   if (existing) return res.status(200).json({ success: true });
   await sb.from('profile_views').insert({ viewer_id: viewer.id, viewed_id: target.id });
-  await notify(target.id, { category: 'profile_view', title: 'New profile view', body: `${viewer.username} viewed your profile` });
+  await notify(target.id, { category: 'profile_view', title: 'New profile view', body: `${viewer.username} viewed your profile`, meta: { profileUsername: viewer.username } });
   res.status(200).json({ success: true });
 }
 

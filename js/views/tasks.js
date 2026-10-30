@@ -49,10 +49,19 @@ export async function renderTasks() {
         ` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
           <span style="font-size:12px;color:var(--text-secondary);">Reward: <strong style="color:var(--green);">${money(t.reward_click || 150)}</strong></span>
-          ${tab === 'available' ? `<button class="completeTask" data-id="${t.id}" data-url="${t.button_url || ''}" style="padding:8px 16px;background:var(--green);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Complete</button>` : ''}
+          ${tab === 'available' ? `<button class="completeTask" data-id="${t.id}" data-url="${t.button_url || ''}" style="padding:8px 16px;background:var(--green);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Complete</button>` : `<button class="deleteTask" data-id="${t.id}" style="padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Delete</button>`}
         </div>
       </div>
     `).join('');
+
+    document.querySelectorAll('.deleteTask').forEach(btn => btn.onclick = async () => {
+      if (!confirm('Delete this task? It will no longer be available to users.')) return;
+      const r = await apiFetch('/api/tasks?action=delete', { method:'POST', body: JSON.stringify({ deviceId, taskId: btn.dataset.id }) });
+      const d = await r.json();
+      if (!r.ok) return showAlert(d.error || 'Unable to delete task', 'Error');
+      showToast('Task deleted');
+      renderTasks();
+    });
 
     document.querySelectorAll('.completeTask').forEach(btn => btn.onclick = async () => {
       if (btn.dataset.url) window.open(btn.dataset.url, '_blank');
