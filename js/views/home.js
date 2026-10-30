@@ -28,7 +28,7 @@ export function renderHome() {
     </div>
 
     <section class="home-balance-card" aria-labelledby="homeBalanceLabel">
-      <div>
+      <div class="home-balance-content">
         <p id="homeBalanceLabel" class="home-balance-label">Available balance</p>
         <p id="homeBalanceValue" class="home-balance-value">${balanceText}</p>
       </div>
