@@ -19,10 +19,11 @@ export function renderHelp() {
       <p><strong>Daily Bonuses:</strong> Claim NGN 150 every day (grows by NGN 50 per day). Day 7 doubles your week's cumulative total.</p>
       <p><strong>Referrals:</strong> Share your referral link. Every new signup earns you NGN 500.</p>
       <p><strong>Games:</strong> Play Football Shootout, Tic-Tac-Toe, Rock-Paper-Scissors, Leveller, and Predict Tic-Tac-Toe. Win real NGN rewards.</p>
-      <p><strong>Reels:</strong> Create a reel and earn NGN 500 instantly. Each like your reel gets earns you NGN 200.</p>
+      <p><strong>Reels:</strong> Watch reels and use the Reels area when posting is available on your account.</p>
       <p><strong>Followers:</strong> Every new follower earns you NGN 1,000.</p>
-      <p><strong>Tasks:</strong> Complete tasks posted by HOEP users and earn NGN 150 per completion.</p>
+      <p><strong>Tasks:</strong> Complete tasks posted by HOEP users and earn NGN 150 per completion. Task creators can delete their own tasks.</p>
       <p><strong>Telegram Bonus:</strong> Follow us on Telegram for a one-time NGN 200 bonus.</p>
+      <p><strong>Notifications:</strong> A red indicator appears when you have unread notifications. You can delete notifications, and profile-view notifications include a button to open the viewer&apos;s profile.</p>
 
       <h3 style="font-size:15px;font-weight:700;margin-top:16px;">Streaks</h3>
       <p>Visit W Bullion once a day to keep your streak alive. Missing a day resets your streak back to day 1.</p>
@@ -37,10 +38,9 @@ export function renderHelp() {
       <p>You can still refer, watch reels, play games, and earn.</p>
 
       <h3 style="font-size:15px;font-weight:700;margin-top:16px;">Badges</h3>
-      <p>Meet all four criteria and the admin may award you the W Bullion Verified Badge:</p>
+      <p>The admin may award the W Bullion Verified Badge based on account activity and eligibility. Posting a reel is not required.</p>
       <ul style="padding-left:20px;">
         <li>HOEP turned on</li>
-        <li>At least 1 reel posted</li>
         <li>At least 3 successful referrals</li>
         <li>Balance of at least NGN 100,000,000</li>
       </ul>
