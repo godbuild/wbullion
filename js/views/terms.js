@@ -16,11 +16,11 @@ export function renderTerms() {
       <h3>3. Data Recording</h3>
       <p>All actions performed on W Bullion — including games played, reels created, transactions, referrals, and profile changes — are recorded on our servers and may be reviewed by administrators.</p>
       <h3>4. Account Eligibility</h3>
-      <p>You must be at least 18 years old and a Nigerian resident to create an account. One person may operate multiple accounts unless banned.</p>
+      <p>You must be a Nigerian resident to create an account. One person may operate multiple accounts unless banned.</p>
       <h3>5. Activation</h3>
       <p>A one-time activation fee of NGN 500 is required to access earning features. Activation is confirmed manually by administrators after payment verification.</p>
       <h3>6. Earnings & Withdrawals</h3>
-      <p>Earnings are accumulated through games, referrals, reels, tasks, and bonuses. Withdrawals open on December 1, 2026 and are subject to minimum thresholds.</p>
+      <p>Earnings are accumulated through games, referrals, tasks, and bonuses. Reels features may vary by account availability. Withdrawals open on December 1, 2026 and are subject to minimum thresholds.</p>
       <h3>7. Content Ownership</h3>
       <p>You retain ownership of reels you upload. By posting, you grant W Bullion a non-exclusive license to display, distribute, and promote your content within the platform.</p>
       <h3>8. Prohibited Conduct</h3>
