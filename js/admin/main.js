@@ -132,9 +132,10 @@ function updateClock() {
 
 function updateNetwork() {
   const el = document.getElementById('networkLabel');
-  if (!navigator.onLine) { el.innerHTML = '<i class="fas fa-wifi" style="color:#ef4444"></i> Offline'; return; }
+  if (!navigator.onLine) { el.innerHTML = '<i class="fas fa-signal" style="color:#ef4444"></i> Offline'; return; }
   const conn = navigator.connection || {};
-  el.innerHTML = `<i class="fas fa-wifi"></i> ${conn.type === 'cellular' ? 'Mobile' : 'WiFi'}`;
+  const isMobileNetwork = conn.type === 'cellular';
+    el.innerHTML = `<i class="fas ${isMobileNetwork ? 'fa-signal' : 'fa-wifi'}"></i> ${isMobileNetwork ? 'Mobile' : 'WiFi'}`;
 }
 
 function renderBattery() {
