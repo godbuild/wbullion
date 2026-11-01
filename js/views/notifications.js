@@ -60,8 +60,8 @@ export async function renderNotifications(category = 'all') {
                 <span style="font-size:11px;color:var(--text-secondary);">${new Date(n.created_at).toLocaleString()}</span>
                 <div style="display:flex;gap:12px;align-items:center;">
                   <button class="readMore" data-id="${n.id}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">Read more</button>
-                  ${n.category === 'profile_view' && n.meta?.profileUsername ? `<button class="viewProfileFromNotification" data-username="${escapeHtml(n.meta.profileUsername)}" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;">View profile</button>` : ''}
-                  <button class="deleteNotification" data-id="${n.id}" aria-label="Delete notification" style="border:0;background:none;color:#ef4444;font-weight:700;cursor:pointer;">Delete</button>
+                  ${n.category === 'profile_view' && n.meta?.profileUsername ? `<button class="viewProfileFromNotification" data-username="${escapeHtml(n.meta.profileUsername)}" aria-label="View profile" title="View profile" style="border:0;background:none;color:var(--green);font-weight:700;cursor:pointer;"><i class="fas fa-eye" aria-hidden="true"></i></button>` : ''}
+                  <button class="deleteNotification" data-id="${n.id}" aria-label="Delete notification" title="Delete notification" style="border:0;background:none;color:#ef4444;font-weight:700;cursor:pointer;"><i class="fas fa-trash" aria-hidden="true"></i></button>
                 </div>
               </div>
             </div>
