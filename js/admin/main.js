@@ -350,7 +350,7 @@ async function loadPayments(status) {
           <button class="btn btn-danger" onclick="rejectPayment('${p.id}')">Reject</button>
         ` : `
           <button class="btn btn-ghost" onclick="generateReceipt('${p.id}')">Generate Receipt</button>
-          <button class="btn btn-primary" onclick="sendEmail('${p.id}')">Send Email</button>
+          <button class="btn btn-primary" onclick="sendEmail('${p.id}', '${encodeURIComponent(p.email || '')}', '${encodeURIComponent(p.name || '')}')">Open Gmail</button>
         `}
       </div>
     </div>`).join('');
@@ -383,11 +383,16 @@ window.generateReceipt = (id) => {
   window.open(`${API}/admin?action=receipt&paymentId=${id}&deviceId=${deviceId}`, '_blank');
 };
 
-window.sendEmail = async (id) => {
-  const r = await adminFetch(`${API}/admin?action=send-email`, { method: 'POST', body: JSON.stringify({ paymentId: id }) });
-  const d = await r.json();
-  if (!r.ok) return toast(d.error);
-  toast('Email sent with receipt attached');
+window.sendEmail = (id, encodedEmail, encodedName) => {
+  const email = decodeURIComponent(encodedEmail || '');
+  const name = decodeURIComponent(encodedName || '') || 'there';
+  const subject = 'W Bullion Payment Confirmation';
+  const body = `Hello ${name},%0D%0A%0D%0AYour W Bullion payment has been confirmed.%0D%0A%0D%0ARegards,%0D%0AW Bullion`;
+  const receiptUrl = `${API}/admin?action=receipt&paymentId=${encodeURIComponent(id)}&deviceId=${encodeURIComponent(deviceId)}`;
+  window.open(receiptUrl, '_blank', 'noopener');
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${body}`;
+  window.open(gmailUrl, '_blank', 'noopener');
+  toast('Receipt opened. Download it, then attach it in Gmail.');
 };
 
 // ============ Users ============
