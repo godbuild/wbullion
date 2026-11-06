@@ -144,7 +144,7 @@ async function profile(req, res) {
   const [{ count: followersCount }, { count: followingCount }, { count: referredCount }] = await Promise.all([
     sb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
     sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
-    sb.from('users').select('*', { count: 'exact', head: true }).eq('referred_by', user.username)
+    sb.from('users').select('*', { count: 'exact', head: true }).eq('referred_by', user.username).is('deleted_at', null)
   ]);
 
   let following = false;
