@@ -169,7 +169,8 @@ function showEditModal(user) {
     <div class="modal-box">
       <h3 style="margin-bottom:16px;">Edit Profile</h3>
       <input id="edName" class="wb-input" placeholder="Full Name" value="${user.full_name}" style="margin-bottom:10px;">
-      <input id="edUsername" class="wb-input" placeholder="@username" value="${user.username}" style="margin-bottom:10px;">
+      <input id="edUsername" class="wb-input" placeholder="@username" value="${user.username}" style="margin-bottom:4px;">
+      <small id="usernameAvailability" aria-live="polite" style="display:block;min-height:18px;margin-bottom:10px;"></small>
       <input id="edEmail" class="wb-input" placeholder="email" value="${user.email || ''}" style="margin-bottom:10px;">
       <textarea id="edBio" class="wb-input" placeholder="Bio (200 chars)" maxlength="200" style="margin-bottom:10px;min-height:60px;">${user.bio || ''}</textarea>
 
@@ -188,10 +189,34 @@ function showEditModal(user) {
   document.body.appendChild(modal);
 
   modal.querySelector('#cancelEdit').onclick = () => modal.remove();
+  const usernameInput = modal.querySelector('#edUsername');
+  const usernameAvailability = modal.querySelector('#usernameAvailability');
+  let usernameCheckTimer;
+  let usernameAvailable = true;
+  usernameInput.addEventListener('input', () => {
+    clearTimeout(usernameCheckTimer);
+    const value = usernameInput.value.trim();
+    const unchanged = value.toLowerCase() === String(user.username || '').toLowerCase();
+    usernameAvailable = unchanged;
+    if (!value || unchanged) { usernameAvailability.textContent = ''; usernameAvailable = true; return; }
+    usernameAvailability.textContent = 'Checking username…';
+    usernameAvailability.style.color = 'var(--text-secondary)';
+    usernameCheckTimer = setTimeout(async () => {
+      try {
+        const result = await apiFetch(`/api/users?action=check-username&username=${encodeURIComponent(value)}`);
+        usernameAvailable = result.available;
+        usernameAvailability.textContent = result.available ? 'Username is available' : 'Username is already taken';
+        usernameAvailability.style.color = result.available ? 'var(--green)' : '#ef4444';
+      } catch { usernameAvailable = false; usernameAvailability.textContent = 'Unable to check username'; usernameAvailability.style.color = '#ef4444'; }
+    }, 350);
+  });
   modal.querySelector('#saveEdit').onclick = async () => {
     const deviceId = getDeviceId();
     const name = document.getElementById('edName').value.trim();
     const uname = document.getElementById('edUsername').value.trim();
+    if (uname.toLowerCase() !== String(user.username || '').toLowerCase() && !usernameAvailable) {
+      return showAlert('Please choose an available username before saving.', 'Username unavailable');
+    }
     const email = document.getElementById('edEmail').value.trim();
     const bio = document.getElementById('edBio').value.trim();
 
