@@ -10,7 +10,6 @@ const CATEGORIES = [
   { key: 'referral', label: 'Referrals' },
   { key: 'reel_view', label: 'Reel Views' },
   { key: 'reel_like', label: 'Reel Likes' },
-  { key: 'reel_dislike', label: 'Reel Dislikes' },
   { key: 'bonus', label: 'Bonus' },
   { key: 'reel_earn', label: 'Reel Earnings' },
   { key: 'follower_earn', label: 'Follower Earnings' },

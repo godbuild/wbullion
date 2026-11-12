@@ -20,8 +20,11 @@ import { compact } from '../format.js';
 let _state = {
   reels: [],
   index: 0,
-  touchStartY: 0,
-  touchEndY: 0
+  touchStartY: null,
+  touchEndY: null,
+  touchStartedOnControl: false,
+  searchRequestId: 0,
+  searchTerm: ''
 };
 const pendingReactions = new Set();
 
@@ -45,7 +48,7 @@ export async function renderReels() {
       </div>
 
       <div id="searchBar" style="display:none;position:absolute;top:64px;left:16px;right:16px;z-index:55;padding-top:env(safe-area-inset-top);">
-        <input id="reelSearchInput" placeholder="Search captions or descriptions..." style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:rgba(0,0,0,0.75);color:white;font-size:15px;outline:none;">
+        <input id="reelSearchInput" aria-label="Search reels" placeholder="Search reels by caption or creator..." style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:rgba(0,0,0,0.75);color:white;font-size:15px;outline:none;">
       </div>
 
       <div id="reelSlide" style="flex:1;position:relative;overflow:hidden;"></div>
@@ -94,23 +97,31 @@ function requestLocationPermission() {
 }
 
 async function loadReels(q = '') {
+  const requestId = ++_state.searchRequestId;
+  _state.searchTerm = q.trim();
   const deviceId = getDeviceId();
   const email = getCurrentUser()?.email;
   try {
-    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}${email ? `&email=${encodeURIComponent(email)}` : ''}&q=${encodeURIComponent(q)}`);
+    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}${email ? `&email=${encodeURIComponent(email)}` : ''}&q=${encodeURIComponent(_state.searchTerm)}`);
     const data = await res.json();
+    if (requestId !== _state.searchRequestId) return;
+    if (!res.ok) throw new Error(data.error || 'Failed to load reels');
     _state.reels = data.reels || [];
     _state.index = 0;
     renderSlide();
   } catch (err) {
-    document.getElementById('reelSlide').innerHTML = `<div style="color:#888;text-align:center;padding-top:60px;">Failed to load reels</div>`;
+    if (requestId !== _state.searchRequestId) return;
+    document.getElementById('reelSlide').innerHTML = `<div style="color:#fca5a5;text-align:center;padding:60px 24px;">${escapeHtml(err.message || 'Failed to load reels')}</div>`;
   }
 }
 
 function renderSlide() {
   const wrap = document.getElementById('reelSlide');
   if (_state.reels.length === 0) {
-    wrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:16px;">No Matching Results</div>`;
+    const message = _state.searchTerm
+      ? `No reels found for “${escapeHtml(_state.searchTerm)}”. Try a caption, description, or creator username.`
+      : 'No reels are available right now.';
+    wrap.innerHTML = `<div role="status" style="display:flex;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;color:#b8b8b8;font-size:16px;">${message}</div>`;
     return;
   }
 
@@ -157,26 +168,6 @@ function renderSlide() {
   wrap.querySelectorAll('.reel-slide').forEach(slide => {
     const video = slide.querySelector('video');
     const playIcon = slide.querySelector('.reel-play-icon');
-    let lastTapAt = 0;
-
-    slide.addEventListener('touchend', (e) => {
-      if (e.target.closest('button') || e.target.closest('.reel-more')) return;
-      const now = Date.now();
-      if (now - lastTapAt < 300) {
-        e.preventDefault();
-        toggleDislike(slide.querySelector('.reel-like'));
-        lastTapAt = 0;
-      } else {
-        lastTapAt = now;
-      }
-    }, { passive: false });
-
-    slide.addEventListener('dblclick', (e) => {
-      if (e.target.closest('button') || e.target.closest('.reel-more')) return;
-      e.preventDefault();
-      toggleDislike(slide.querySelector('.reel-like'));
-    });
-
     slide.addEventListener('click', (e) => {
       if (e.target.closest('button') || e.target.closest('.reel-more')) return;
       if (video.paused) {
@@ -218,7 +209,11 @@ function renderSlide() {
     io.observe(slide);
   });
 
-  wrap.querySelectorAll('.reel-like').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); toggleLike(btn); });
+  wrap.querySelectorAll('.reel-like').forEach(btn => btn.onclick = (e) => {
+    e.stopPropagation();
+    if (e.detail > 1) return;
+    toggleLike(btn);
+  });
   wrap.querySelectorAll('.reel-profile').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); navigate(`/profile/${btn.dataset.username}`); });
   wrap.querySelectorAll('.reel-delete').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); deleteReel(btn.dataset.id); });
   wrap.querySelectorAll('.reel-more').forEach(el => el.onclick = (e) => {
@@ -230,14 +225,30 @@ function renderSlide() {
 
 function setupSwipe() {
   const wrap = document.getElementById('reelSlide');
-  wrap.addEventListener('touchstart', (e) => { _state.touchStartY = e.touches[0].clientY; }, { passive: true });
-  wrap.addEventListener('touchmove', (e) => { _state.touchEndY = e.touches[0].clientY; }, { passive: true });
-  wrap.addEventListener('touchend', () => {
-    const dy = _state.touchStartY - _state.touchEndY;
-    if (Math.abs(dy) > 50) {
-      if (dy > 0) nextReel();
-      else prevReel();
-    }
+  wrap.addEventListener('touchstart', (e) => {
+    _state.touchStartY = e.touches[0].clientY;
+    _state.touchEndY = e.touches[0].clientY;
+    _state.touchStartedOnControl = Boolean(e.target.closest('button, .reel-more'));
+  }, { passive: true });
+  wrap.addEventListener('touchmove', (e) => {
+    if (_state.touchStartY !== null) _state.touchEndY = e.touches[0].clientY;
+  }, { passive: true });
+  const finishTouch = () => {
+    const startY = _state.touchStartY;
+    const endY = _state.touchEndY;
+    const onControl = _state.touchStartedOnControl;
+    _state.touchStartY = null;
+    _state.touchEndY = null;
+    _state.touchStartedOnControl = false;
+    if (startY === null || endY === null || onControl) return;
+    const dy = startY - endY;
+    if (Math.abs(dy) > 50) dy > 0 ? nextReel() : prevReel();
+  };
+  wrap.addEventListener('touchend', finishTouch);
+  wrap.addEventListener('touchcancel', () => {
+    _state.touchStartY = null;
+    _state.touchEndY = null;
+    _state.touchStartedOnControl = false;
   });
   wrap.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -291,7 +302,6 @@ async function toggleLike(btn) {
 
     if (action === 'like') {
       if (!(reel.likes || []).includes(user.id)) reel.likes = [...(reel.likes || []), user.id];
-      reel.dislikes = (reel.dislikes || []).filter(x => x !== user.id);
     } else {
       reel.likes = (reel.likes || []).filter(x => x !== user.id);
     }
@@ -305,39 +315,6 @@ async function toggleLike(btn) {
   }
 }
 
-async function toggleDislike(btn) {
-  const id = btn.dataset.id;
-  const index = Number(btn.dataset.index);
-  const user = getCurrentUser();
-  if (!user?.id) return showToast('Please log in to react to reels');
-  const requestKey = `${id}:${user.id}`;
-  if (pendingReactions.has(requestKey)) return;
-  const reel = _state.reels[index];
-  if (!reel) return;
-  if ((reel.dislikes || []).includes(user.id)) return showToast('Already disliked');
-
-  pendingReactions.add(requestKey);
-  btn.disabled = true;
-  try {
-    const res = await fetch(`/api/reels?action=like&id=${id}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deviceId: getDeviceId(), action: 'dislike' })
-    });
-    const data = await res.json();
-    if (!res.ok) return showToast(data.error || 'Error');
-
-    if (!(reel.dislikes || []).includes(user.id)) reel.dislikes = [...(reel.dislikes || []), user.id];
-    reel.likes = (reel.likes || []).filter(x => x !== user.id);
-    showToast('Disliked');
-    renderSlide();
-  } catch {
-    showToast('Could not update reaction. Please try again.');
-  } finally {
-    pendingReactions.delete(requestKey);
-    btn.disabled = false;
-  }
-}
 
 async function deleteReel(id) {
   const ok = await showConfirm('Delete this reel permanently?', 'Delete Reel');

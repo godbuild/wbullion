@@ -180,14 +180,17 @@ async function search(req, res) {
   const viewer = await resolveUser(req);
   if (!viewer) return res.status(401).json({ error: 'Not authenticated' });
   if (viewer.visibility === false) return res.status(403).json({ error: 'Private accounts cannot search for users' });
-  const raw = (req.query.q || '').trim().toLowerCase();
-  if (!raw || raw.length < 2) return res.status(200).json({ results: [], message: 'No Matching results' });
-  const q = raw.startsWith('@') ? raw : '@' + raw;
+  const raw = String(req.query.q || '').trim().toLowerCase().slice(0, 64);
+  const safeRaw = raw.replace(/[^\p{L}\p{N}\s@_-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (!safeRaw || safeRaw.length < 2) return res.status(200).json({ results: [], message: 'No matching results' });
+  const usernameQuery = safeRaw.startsWith('@') ? safeRaw : `@${safeRaw}`;
+  const nameQuery = safeRaw.replace(/^@/, '');
   const sb = getAdminClient();
-  const { data: users } = await sb.from('users')
+  const { data: users, error } = await sb.from('users')
     .select('id, username, full_name, badge_awarded, admin, visibility')
-    .or(`username.ilike.%${q}%,full_name.ilike.%${raw}%`)
+    .or(`username.ilike.%${usernameQuery}%,full_name.ilike.%${nameQuery}%`)
     .is('deleted_at', null).limit(10);
+  if (error) return res.status(500).json({ error: error.message });
   if (!users || users.length === 0) return res.status(200).json({ results: [], message: 'No Matching results' });
   const visible = [];
   for (const u of users) {
