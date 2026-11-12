@@ -81,7 +81,8 @@ async function listReels(req, res) {
   if (user.visibility === false) return res.status(403).json({ error: 'Private accounts cannot browse reels' });
 
   const sb = getAdminClient();
-  const search = (req.query.q || '').trim();
+  const search = String(req.query.q || '').trim().slice(0, 80);
+  const safeSearch = search.replace(/[^\p{L}\p{N}\s@_-]/gu, ' ').replace(/\s+/g, ' ').trim();
 
   const { data: followRows } = await sb.from('follows').select('following_id').eq('follower_id', user.id);
   const followingIds = (followRows || []).map(r => r.following_id);
@@ -90,9 +91,10 @@ async function listReels(req, res) {
     .select('id, user_id, username, caption, description, cloudinary_secure_url, duration, likes, dislikes, views, created_at')
     .eq('deleted', false).order('created_at', { ascending: false }).limit(100);
 
-  if (search) {
-    const needle = `%${search}%`;
-    query = query.or(`caption.ilike.${needle},description.ilike.${needle}`);
+  if (safeSearch) {
+    const needle = `%${safeSearch}%`;
+    const creatorNeedle = `%${safeSearch.replace(/^@/, '')}%`;
+    query = query.or(`caption.ilike.${needle},description.ilike.${needle},username.ilike.${creatorNeedle}`);
   }
 
   const { data: reels, error } = await query;
