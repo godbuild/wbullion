@@ -83,12 +83,13 @@ async function listReels(req, res) {
   const sb = getAdminClient();
   const search = String(req.query.q || '').trim().slice(0, 80);
   const safeSearch = search.replace(/[^\p{L}\p{N}\s@_-]/gu, ' ').replace(/\s+/g, ' ').trim();
+  if (search && !safeSearch) return res.status(200).json({ reels: [], followedCount: 0, totalCount: 0 });
 
   const { data: followRows } = await sb.from('follows').select('following_id').eq('follower_id', user.id);
   const followingIds = (followRows || []).map(r => r.following_id);
 
   let query = sb.from('reels')
-    .select('id, user_id, username, caption, description, cloudinary_secure_url, duration, likes, dislikes, views, created_at')
+    .select('id, user_id, username, caption, description, cloudinary_secure_url, duration, likes, views, created_at')
     .eq('deleted', false).order('created_at', { ascending: false }).limit(100);
 
   if (safeSearch) {
@@ -158,14 +159,11 @@ async function likeReel(req, res) {
   if (!reel) return res.status(404).json({ error: 'Reel not found' });
 
   const likes = new Set(reel.likes || []);
-  const dislikes = new Set(reel.dislikes || []);
   const wasLiked = likes.has(user.id);
-  const wasDisliked = dislikes.has(user.id);
 
   if (action === 'like') {
     if (wasLiked) return res.status(200).json({ success: true, message: 'Already liked' });
     likes.add(user.id);
-    dislikes.delete(user.id);
 
     const { data: creator } = await sb.from('users').select('balance').eq('id', reel.user_id).maybeSingle();
     if (creator) {
@@ -178,21 +176,17 @@ async function likeReel(req, res) {
   } else if (action === 'unlike') {
     if (!wasLiked) return res.status(200).json({ success: true, message: 'Not liked' });
     likes.delete(user.id);
-  } else if (action === 'dislike') {
-    if (wasDisliked) return res.status(200).json({ success: true, message: 'Already disliked' });
-    dislikes.add(user.id);
-    likes.delete(user.id);
   } else {
     return res.status(400).json({ error: 'Invalid action' });
   }
 
-  const { data: updated } = await sb.from('reels').update({
-    likes: [...likes], dislikes: [...dislikes]
-  }).eq('id', id).select('likes, dislikes').single();
+  const { data: updated } = await sb.from('reels').update({ likes: [...likes] })
+    .eq('id', id).select('likes').single();
 
   res.status(200).json({
-    success: true, likes: updated.likes.length, dislikes: updated.dislikes.length,
-    message: action === 'like' ? 'Liked' : action === 'unlike' ? 'Unliked' : 'Disliked'
+    success: true,
+    likes: updated.likes.length,
+    message: action === 'like' ? 'Liked' : 'Unliked'
   });
 }
 
