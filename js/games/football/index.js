@@ -387,6 +387,7 @@ function attachSwipeHandlers(canvas) {
     if (!S || S.isAnimating || S.isReplaying) return;
     S.swipeStart = { x: e.clientX, y: e.clientY };
     S.swipePath = [{ x: e.clientX, y: e.clientY }];
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
     drawSwipeLine();
   });
 
@@ -394,6 +395,14 @@ function attachSwipeHandlers(canvas) {
     if (!S || !S.swipeStart) return;
     S.swipePath.push({ x: e.clientX, y: e.clientY });
     drawSwipeLine();
+  });
+
+  canvas.addEventListener('pointercancel', () => {
+    if (!S) return;
+    S.swipeStart = null;
+    S.swipeEnd = null;
+    S.swipePath = [];
+    clearSwipeLine();
   });
 
   canvas.addEventListener('pointerup', (e) => {

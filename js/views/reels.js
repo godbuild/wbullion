@@ -23,6 +23,7 @@ let _state = {
   touchStartY: 0,
   touchEndY: 0
 };
+const pendingReactions = new Set();
 
 function forceDark() {
   document.documentElement.setAttribute('data-reels-theme', 'dark');
@@ -271,26 +272,37 @@ async function toggleLike(btn) {
   const index = Number(btn.dataset.index);
   const user = getCurrentUser();
   if (!user?.id) return showToast('Please log in to react to reels');
+  const requestKey = `${id}:${user.id}`;
+  if (pendingReactions.has(requestKey)) return;
   const reel = _state.reels[index];
-  const wasLiked = (reel.likes || []).includes(user.id);
+  if (!reel) return;
+  pendingReactions.add(requestKey);
+  btn.disabled = true;
+  const action = (reel.likes || []).includes(user.id) ? 'unlike' : 'like';
 
-  const action = wasLiked ? 'unlike' : 'like';
-  const res = await fetch(`/api/reels?action=like&id=${id}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId: getDeviceId(), action })
-  });
-  const data = await res.json();
-  if (!res.ok) return showToast(data.error || 'Error');
+  try {
+    const res = await fetch(`/api/reels?action=like&id=${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: getDeviceId(), action })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Error');
 
-  if (action === 'like') {
-    reel.likes = [...(reel.likes || []), user.id];
-    reel.dislikes = (reel.dislikes || []).filter(x => x !== user.id);
-  } else {
-    reel.likes = (reel.likes || []).filter(x => x !== user.id);
+    if (action === 'like') {
+      if (!(reel.likes || []).includes(user.id)) reel.likes = [...(reel.likes || []), user.id];
+      reel.dislikes = (reel.dislikes || []).filter(x => x !== user.id);
+    } else {
+      reel.likes = (reel.likes || []).filter(x => x !== user.id);
+    }
+    showToast(action === 'like' ? 'Liked' : 'Unliked');
+    renderSlide();
+  } catch {
+    showToast('Could not update reaction. Please try again.');
+  } finally {
+    pendingReactions.delete(requestKey);
+    btn.disabled = false;
   }
-  showToast(action === 'like' ? 'Liked' : 'Unliked');
-  renderSlide();
 }
 
 async function toggleDislike(btn) {
@@ -298,23 +310,33 @@ async function toggleDislike(btn) {
   const index = Number(btn.dataset.index);
   const user = getCurrentUser();
   if (!user?.id) return showToast('Please log in to react to reels');
+  const requestKey = `${id}:${user.id}`;
+  if (pendingReactions.has(requestKey)) return;
   const reel = _state.reels[index];
-  const wasDisliked = (reel.dislikes || []).includes(user.id);
+  if (!reel) return;
+  if ((reel.dislikes || []).includes(user.id)) return showToast('Already disliked');
 
-  if (wasDisliked) return showToast('Already disliked');
+  pendingReactions.add(requestKey);
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/reels?action=like&id=${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: getDeviceId(), action: 'dislike' })
+    });
+    const data = await res.json();
+    if (!res.ok) return showToast(data.error || 'Error');
 
-  const res = await fetch(`/api/reels?action=like&id=${id}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId: getDeviceId(), action: 'dislike' })
-  });
-  const data = await res.json();
-  if (!res.ok) return showToast(data.error || 'Error');
-
-  reel.dislikes = [...(reel.dislikes || []), user.id];
-  reel.likes = (reel.likes || []).filter(x => x !== user.id);
-  showToast('Disliked');
-  renderSlide();
+    if (!(reel.dislikes || []).includes(user.id)) reel.dislikes = [...(reel.dislikes || []), user.id];
+    reel.likes = (reel.likes || []).filter(x => x !== user.id);
+    showToast('Disliked');
+    renderSlide();
+  } catch {
+    showToast('Could not update reaction. Please try again.');
+  } finally {
+    pendingReactions.delete(requestKey);
+    btn.disabled = false;
+  }
 }
 
 async function deleteReel(id) {
