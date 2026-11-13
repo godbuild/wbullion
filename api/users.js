@@ -192,15 +192,27 @@ async function search(req, res) {
     .is('deleted_at', null).limit(10);
   if (error) return res.status(500).json({ error: error.message });
   if (!users || users.length === 0) return res.status(200).json({ results: [], message: 'No Matching results' });
-  const visible = [];
-  for (const u of users) {
+  const visible = await Promise.all(users.map(async u => {
     if (u.visibility === false && u.id !== viewer.id) {
-      visible.push({ username: u.username, full_name: 'Not Available', private: true });
-      continue;
+      return { username: u.username, full_name: 'Not Available', private: true, reels: [] };
     }
-    const { data: f } = await sb.from('follows').select('id').eq('follower_id', viewer.id).eq('following_id', u.id).maybeSingle();
-    visible.push({ id: u.id, username: u.username, full_name: u.full_name, badge_awarded: u.badge_awarded, admin: u.admin, isFollowing: !!f, private: false });
-  }
+    const [{ data: follow }, { data: reels }] = await Promise.all([
+      sb.from('follows').select('id').eq('follower_id', viewer.id).eq('following_id', u.id).maybeSingle(),
+      sb.from('reels')
+        .select('id, cloudinary_secure_url, caption, views, created_at')
+        .eq('user_id', u.id).eq('deleted', false).order('created_at', { ascending: false }).limit(4)
+    ]);
+    return {
+      id: u.id,
+      username: u.username,
+      full_name: u.full_name,
+      badge_awarded: u.badge_awarded,
+      admin: u.admin,
+      isFollowing: !!follow,
+      private: false,
+      reels: reels || []
+    };
+  }));
   res.status(200).json({ results: visible });
 }
 

@@ -22,9 +22,13 @@ let _state = {
   index: 0,
   touchStartY: null,
   touchEndY: null,
-  touchStartedOnControl: false,
   searchRequestId: 0,
-  searchTerm: ''
+  searchTerm: '',
+  searchResults: [],
+  showingSearchGrid: false,
+  viewingSearchResult: false,
+  baseReels: [],
+  baseIndex: 0
 };
 const pendingReactions = new Set();
 
@@ -39,10 +43,15 @@ export async function renderReels() {
   el.innerHTML = `
     <div style="position:fixed;inset:0;background:#000;color:white;z-index:40;display:flex;flex-direction:column;">
       <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:16px;z-index:50;padding-top:calc(16px + env(safe-area-inset-top));">
-        <button id="reelsClose" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;">
-          <i class="fas fa-close"></i>
-        </button>
-        <button id="reelsSearchBtn" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:16px;cursor:pointer;">
+        <div style="display:flex;gap:8px;">
+          <button id="reelsClose" aria-label="Close reels" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;">
+            <i class="fas fa-close"></i>
+          </button>
+          <button id="backToReelResults" aria-label="Back to reel search results" hidden style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:16px;cursor:pointer;">
+            <i class="fas fa-arrow-left"></i>
+          </button>
+        </div>
+        <button id="reelsSearchBtn" aria-label="Search reels" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:16px;cursor:pointer;">
           <i class="fas fa-search"></i>
         </button>
       </div>
@@ -50,6 +59,11 @@ export async function renderReels() {
       <div id="searchBar" style="display:none;position:absolute;top:64px;left:16px;right:16px;z-index:55;padding-top:env(safe-area-inset-top);">
         <input id="reelSearchInput" aria-label="Search reels" placeholder="Search reels by caption or creator..." style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:rgba(0,0,0,0.75);color:white;font-size:15px;outline:none;">
       </div>
+
+      <section id="reelSearchResults" aria-label="Reel search results" hidden style="position:absolute;inset:0;z-index:45;overflow-y:auto;background:#080808;padding:calc(78px + env(safe-area-inset-top)) 2px calc(20px + env(safe-area-inset-bottom));">
+        <p id="reelSearchResultSummary" role="status" style="margin:0 12px 12px;color:#ccc;font-size:13px;"></p>
+        <div id="reelSearchGrid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;"></div>
+      </section>
 
       <div id="reelSlide" style="flex:1;position:relative;overflow:hidden;"></div>
 
@@ -67,11 +81,19 @@ export async function renderReels() {
     bar.style.display = bar.style.display === 'none' ? 'block' : 'none';
     if (bar.style.display === 'block') document.getElementById('reelSearchInput').focus();
   };
+  document.getElementById('backToReelResults').onclick = () => showReelSearchResults();
 
   let searchTimer;
   document.getElementById('reelSearchInput').addEventListener('input', e => {
+    const query = e.target.value.trim();
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => loadReels(e.target.value), 400);
+    if (!query) {
+      resetReelSearch();
+      return;
+    }
+    const requestId = ++_state.searchRequestId;
+    showReelSearchLoading(query);
+    searchTimer = setTimeout(() => searchReels(query, requestId), 300);
   });
 
   setupSwipe();
@@ -107,12 +129,99 @@ async function loadReels(q = '') {
     if (requestId !== _state.searchRequestId) return;
     if (!res.ok) throw new Error(data.error || 'Failed to load reels');
     _state.reels = data.reels || [];
+    _state.baseReels = _state.reels;
     _state.index = 0;
+    _state.baseIndex = 0;
+    _state.viewingSearchResult = false;
     renderSlide();
   } catch (err) {
     if (requestId !== _state.searchRequestId) return;
     document.getElementById('reelSlide').innerHTML = `<div style="color:#fca5a5;text-align:center;padding:60px 24px;">${escapeHtml(err.message || 'Failed to load reels')}</div>`;
   }
+}
+
+function showReelSearchLoading(query) {
+  if (!_state.showingSearchGrid && !_state.viewingSearchResult) _state.baseIndex = _state.index;
+  _state.showingSearchGrid = true;
+  document.getElementById('reelSearchResults').hidden = false;
+  document.getElementById('reelSearchResultSummary').textContent = `Searching reels for “${query}”…`;
+  document.getElementById('reelSearchGrid').innerHTML = '';
+  document.getElementById('reelSlide').style.display = 'none';
+  document.getElementById('createReelBtn').hidden = true;
+  document.getElementById('backToReelResults').hidden = true;
+}
+
+async function searchReels(query, requestId) {
+  _state.searchTerm = query;
+  const deviceId = getDeviceId();
+  const email = getCurrentUser()?.email;
+  try {
+    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}${email ? `&email=${encodeURIComponent(email)}` : ''}&q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    if (requestId !== _state.searchRequestId) return;
+    if (!res.ok) throw new Error(data.error || 'Search failed');
+    _state.searchResults = data.reels || [];
+    renderReelSearchGrid();
+  } catch (error) {
+    if (requestId !== _state.searchRequestId) return;
+    const summary = document.getElementById('reelSearchResultSummary');
+    summary.textContent = error.message || 'Could not search reels. Try again.';
+    summary.style.color = '#fca5a5';
+  }
+}
+
+function renderReelSearchGrid() {
+  const summary = document.getElementById('reelSearchResultSummary');
+  const grid = document.getElementById('reelSearchGrid');
+  summary.style.color = '#ccc';
+  summary.textContent = _state.searchResults.length
+    ? `${_state.searchResults.length} reel${_state.searchResults.length === 1 ? '' : 's'} found`
+    : `No reels found for “${_state.searchTerm}”. Try a caption, description, or creator username.`;
+  grid.innerHTML = _state.searchResults.map((reel, index) => `
+    <button type="button" class="reel-search-tile" data-index="${index}" aria-label="Open reel ${index + 1}${reel.caption ? `: ${escapeAttr(reel.caption)}` : ''}" style="position:relative;aspect-ratio:9/16;overflow:hidden;padding:0;border:0;background:#161616;color:white;cursor:pointer;">
+      <video src="${escapeAttr(reel.cloudinary_secure_url)}" poster="${escapeAttr(getReelPoster(reel.cloudinary_secure_url))}" muted playsinline preload="none" aria-hidden="true" style="width:100%;height:100%;object-fit:cover;"></video>
+      <span style="position:absolute;left:7px;bottom:7px;display:flex;align-items:center;gap:4px;color:white;font-size:12px;text-shadow:0 1px 3px #000;"><i class="fas fa-play" aria-hidden="true"></i>${compact(reel.views || 0)}</span>
+    </button>
+  `).join('');
+  grid.querySelectorAll('.reel-search-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      _state.reels = _state.searchResults;
+      _state.index = Number(tile.dataset.index);
+      _state.viewingSearchResult = true;
+      document.getElementById('reelSearchResults').hidden = true;
+      document.getElementById('reelSlide').style.display = 'block';
+      document.getElementById('searchBar').style.display = 'none';
+      document.getElementById('backToReelResults').hidden = false;
+      renderSlide();
+    });
+  });
+}
+
+function showReelSearchResults() {
+  _state.showingSearchGrid = true;
+  _state.viewingSearchResult = false;
+  document.getElementById('reelSearchResults').hidden = false;
+  document.getElementById('reelSlide').style.display = 'none';
+  document.getElementById('createReelBtn').hidden = true;
+  document.getElementById('backToReelResults').hidden = true;
+}
+
+function resetReelSearch() {
+  _state.searchRequestId++;
+  _state.searchTerm = '';
+  const hadSearchResults = _state.searchResults.length > 0;
+  _state.searchResults = [];
+  _state.showingSearchGrid = false;
+  if (hadSearchResults || _state.viewingSearchResult) {
+    _state.reels = _state.baseReels;
+    _state.index = _state.baseIndex;
+    renderSlide();
+  }
+  _state.viewingSearchResult = false;
+  document.getElementById('reelSearchResults').hidden = true;
+  document.getElementById('reelSlide').style.display = 'block';
+  document.getElementById('createReelBtn').hidden = false;
+  document.getElementById('backToReelResults').hidden = true;
 }
 
 function renderSlide() {
@@ -155,7 +264,7 @@ function renderSlide() {
         <div style="position:absolute;left:12px;right:80px;bottom:100px;color:white;z-index:5;">
           <p style="font-weight:700;font-size:15px;">${r.username}</p>
           ${r.caption ? `<p style="font-weight:600;font-size:14px;margin-top:4px;">${escapeHtml(r.caption)}</p>` : ''}
-          ${desc ? `<p style="font-size:13px;opacity:0.9;margin-top:4px;" class="reel-desc" data-full="${escapeAttr(desc)}" data-short="${escapeAttr(descShort)}">${escapeHtml(descShort)}${desc.length > 90 ? ' <span style="font-weight:600;cursor:pointer;" class="reel-more">more</span>' : ''}</p>` : ''}
+          ${desc ? `<p style="font-size:13px;opacity:0.9;margin-top:4px;" class="reel-desc" data-full="${escapeAttr(desc)}" data-short="${escapeAttr(descShort)}">${escapeHtml(descShort)}${desc.length > 90 ? ' <button type="button" class="reel-more" aria-expanded="false" style="font-weight:600;background:none;border:0;padding:0;color:inherit;cursor:pointer;">more</button>' : ''}</p>` : ''}
         </div>
 
         <div style="position:absolute;right:12px;top:64px;color:white;font-size:12px;opacity:0.85;z-index:5;">
@@ -216,10 +325,19 @@ function renderSlide() {
   });
   wrap.querySelectorAll('.reel-profile').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); navigate(`/profile/${btn.dataset.username}`); });
   wrap.querySelectorAll('.reel-delete').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); deleteReel(btn.dataset.id); });
-  wrap.querySelectorAll('.reel-more').forEach(el => el.onclick = (e) => {
+  wrap.querySelectorAll('.reel-desc').forEach(p => p.addEventListener('click', e => {
+    const button = e.target.closest('.reel-more');
+    if (!button) return;
     e.stopPropagation();
-    const p = el.closest('.reel-desc');
-    p.textContent = p.dataset.full;
+    const expanded = button.getAttribute('aria-expanded') === 'true';
+    const text = expanded ? p.dataset.short : p.dataset.full;
+    const moreButton = expanded ? 'more' : 'less';
+    p.innerHTML = `${escapeHtml(text)} <button type="button" class="reel-more" aria-expanded="${!expanded}" style="font-weight:600;background:none;border:0;padding:0;color:inherit;cursor:pointer;">${moreButton}</button>`;
+  }));
+  wrap.querySelectorAll('button').forEach(button => {
+    ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
+      button.addEventListener(type, event => event.stopPropagation(), { passive: true });
+    });
   });
 }
 
@@ -228,7 +346,6 @@ function setupSwipe() {
   wrap.addEventListener('touchstart', (e) => {
     _state.touchStartY = e.touches[0].clientY;
     _state.touchEndY = e.touches[0].clientY;
-    _state.touchStartedOnControl = Boolean(e.target.closest('button, .reel-more'));
   }, { passive: true });
   wrap.addEventListener('touchmove', (e) => {
     if (_state.touchStartY !== null) _state.touchEndY = e.touches[0].clientY;
@@ -236,11 +353,9 @@ function setupSwipe() {
   const finishTouch = () => {
     const startY = _state.touchStartY;
     const endY = _state.touchEndY;
-    const onControl = _state.touchStartedOnControl;
     _state.touchStartY = null;
     _state.touchEndY = null;
-    _state.touchStartedOnControl = false;
-    if (startY === null || endY === null || onControl) return;
+    if (startY === null || endY === null) return;
     const dy = startY - endY;
     if (Math.abs(dy) > 50) dy > 0 ? nextReel() : prevReel();
   };
@@ -248,13 +363,7 @@ function setupSwipe() {
   wrap.addEventListener('touchcancel', () => {
     _state.touchStartY = null;
     _state.touchEndY = null;
-    _state.touchStartedOnControl = false;
   });
-  wrap.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    if (e.deltaY > 0) nextReel();
-    else prevReel();
-  }, { passive: false });
 }
 
 function nextReel() {
@@ -328,6 +437,10 @@ async function deleteReel(id) {
   _state.reels = _state.reels.filter(r => r.id !== id);
   if (_state.index >= _state.reels.length) _state.index = Math.max(0, _state.reels.length - 1);
   renderSlide();
+}
+
+function getReelPoster(url) {
+  return String(url || '').replace('/video/upload/', '/video/upload/so_0,f_jpg/').replace(/\.(?:mp4|mov|webm)(\?.*)?$/i, '.jpg$1');
 }
 
 function escapeHtml(s) { return (s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
