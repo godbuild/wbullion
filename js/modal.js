@@ -42,13 +42,13 @@ export function showAlert(message, title = '') {
   });
 }
 
-export function showConfirm(message, title = 'Confirm') {
+export function showConfirm(message, title = 'Confirm', confirmLabel = 'Confirm') {
   return new Promise(resolve => {
     const { backdrop } = buildModal({
       title, message,
       buttons: [
         { label: 'Cancel', style: 'ghost', onClick: () => resolve(false) },
-        { label: 'Confirm', style: 'primary', onClick: () => resolve(true) }
+        { label: confirmLabel, style: 'primary', onClick: () => resolve(true) }
       ]
     });
     root().appendChild(backdrop);

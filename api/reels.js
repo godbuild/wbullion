@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { Readable } from 'node:stream';
 import { getAdminClient } from '../lib/supabase.js';
 import { resolveUser } from '../lib/auth.js';
 
@@ -9,6 +10,7 @@ export default async function handler(req, res) {
     case 'create':      return createReel(req, res);
     case 'list':        return listReels(req, res);
     case 'single':      return singleReel(req, res);
+    case 'download':    return downloadReel(req, res);
     case 'like':        return likeReel(req, res);
     case 'view':        return viewReel(req, res);
     default: return res.status(400).json({ error: 'Unknown reels action' });
@@ -144,6 +146,67 @@ async function singleReel(req, res) {
     return res.status(200).json({ success: true });
   }
   res.status(405).json({ error: 'Method not allowed' });
+}
+
+async function downloadReel(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return res.status(405).json({ error: 'Method not allowed' });
+  const user = await resolveUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'Reel id required' });
+  const sb = getAdminClient();
+  const { data: reel, error } = await sb.from('reels')
+    .select('id, user_id, cloudinary_secure_url, deleted')
+    .eq('id', id).maybeSingle();
+  if (error) return res.status(500).json({ error: 'Could not verify reel access' });
+  if (!reel || reel.deleted) return res.status(404).json({ error: 'Reel not found' });
+
+  if (reel.user_id !== user.id) {
+    if (user.visibility === false) return res.status(403).json({ error: 'Private accounts cannot download reels' });
+    const { data: owner } = await sb.from('users').select('visibility').eq('id', reel.user_id).maybeSingle();
+    if (owner?.visibility === false) return res.status(403).json({ error: 'This reel is not available' });
+  }
+
+  let videoUrl;
+  try {
+    videoUrl = new URL(reel.cloudinary_secure_url);
+  } catch {
+    return res.status(502).json({ error: 'Reel video URL is invalid' });
+  }
+  if (videoUrl.protocol !== 'https:' || videoUrl.hostname !== 'res.cloudinary.com') {
+    return res.status(502).json({ error: 'Reel video source is not supported' });
+  }
+
+  const safeId = String(reel.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'video';
+  res.setHeader('Content-Disposition', `attachment; filename="reel-${safeId}.mp4"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  if (req.method === 'HEAD') return res.status(200).end();
+
+  try {
+    const upstream = await fetch(videoUrl, { redirect: 'error', signal: AbortSignal.timeout(45000) });
+    if (!upstream.ok || !upstream.body) return res.status(502).json({ error: 'Could not retrieve reel video' });
+    const contentType = upstream.headers.get('content-type') || 'video/mp4';
+    res.setHeader('Content-Type', contentType.startsWith('video/') ? contentType : 'video/mp4');
+    const contentLength = upstream.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    res.statusCode = 200;
+    const stream = Readable.fromWeb(upstream.body);
+    return await new Promise(resolve => {
+      stream.once('error', () => {
+        if (!res.headersSent) res.status(502).end();
+        else res.destroy();
+        resolve();
+      });
+      res.once('finish', resolve);
+      res.once('close', resolve);
+      stream.pipe(res);
+    });
+  } catch {
+    if (!res.headersSent) return res.status(502).json({ error: 'Could not retrieve reel video' });
+    return res.destroy();
+  }
 }
 
 async function likeReel(req, res) {
