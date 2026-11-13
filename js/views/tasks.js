@@ -48,7 +48,7 @@ export async function renderTasks() {
           <a href="${t.button_url}" target="_blank" rel="noopener" style="display:inline-block;margin-top:10px;padding:8px 16px;background:var(--purple);color:white;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">${t.button_label}</a>
         ` : ''}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-          <span style="font-size:12px;color:var(--text-secondary);">Reward: <strong style="color:var(--green);">${money(t.reward_click || 150)}</strong></span>
+          <span style="font-size:12px;color:var(--text-secondary);">Reward: <strong style="color:var(--green);">${money(Number(t.reward_click ?? 150) + Number(t.pay_per_click ?? 0))}</strong>${Number(t.pay_per_click ?? 0) > 0 ? `<span style="display:block;margin-top:3px;color:var(--text-secondary);">Includes ${money(t.pay_per_click)} creator-funded per click</span>` : ''}</span>
           ${tab === 'available' ? `<button class="completeTask" data-id="${t.id}" data-url="${t.button_url || ''}" style="padding:8px 16px;background:var(--green);color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Complete</button>` : `<button class="deleteTask" data-id="${t.id}" style="padding:8px 16px;background:#ef4444;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Delete</button>`}
         </div>
       </div>
@@ -107,8 +107,9 @@ function showCreateTask() {
       <textarea id="tDesc" class="wb-input" placeholder="Description (links will be auto-detected)" style="min-height:100px;margin-bottom:10px;"></textarea>
       <input id="tBtnLabel" class="wb-input" placeholder="Button label (optional)" style="margin-bottom:10px;">
       <input id="tBtnUrl" class="wb-input" placeholder="Button URL (optional)" style="margin-bottom:10px;">
-      <input id="tReward" class="wb-input" type="number" placeholder="Reward per completion (default 150)" value="150" style="margin-bottom:10px;">
-      <input id="tCPC" class="wb-input" type="number" placeholder="Pay-per-click cost (deducts from you per click)" value="0" style="margin-bottom:12px;">
+      <input id="tReward" class="wb-input" type="number" min="0" step="1" placeholder="Reward per completion (default 150)" value="150" style="margin-bottom:10px;">
+      <input id="tCPC" class="wb-input" type="number" min="0" step="1" placeholder="Pay-per-click reward (deducted from you and paid to the user)" value="0" style="margin-bottom:8px;">
+      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:12px;">The user receives both amounts. Set completion reward to 0 if you only want to pay the click-funded reward.</p>
       <div class="modal-actions">
         <button type="button" class="modal-btn ghost" id="cancelTask">Cancel</button>
         <button type="button" class="modal-btn primary" id="saveTask">Create (Earn NGN 500)</button>
@@ -127,10 +128,12 @@ function showCreateTask() {
         descriptionHtml: document.getElementById('tDesc').value,
         buttonLabel: document.getElementById('tBtnLabel').value,
         buttonUrl: document.getElementById('tBtnUrl').value,
-        rewardClick: Number(document.getElementById('tReward').value) || 150,
-        payPerClick: Number(document.getElementById('tCPC').value) || 0
+        rewardClick: document.getElementById('tReward').value === '' ? 150 : Number(document.getElementById('tReward').value),
+        payPerClick: document.getElementById('tCPC').value === '' ? 0 : Number(document.getElementById('tCPC').value)
       })
     });
+    const data = await r.json();
+    if (!r.ok) return showAlert(data.error || 'Unable to create task', 'Error');
     showToast('Task created! +NGN 500');
     modal.remove();
     renderTasks();

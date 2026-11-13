@@ -50,17 +50,6 @@ export async function renderSearch() {
         const badge = u.badge_awarded || u.admin ? '<i class="fas fa-check-circle" aria-label="Verified" title="Verified" style="color:#3b82f6;font-size:15px;display:inline-block;vertical-align:middle;margin-left:6px;"></i>' : '';
         const isMe = me && (me.username || '').toLowerCase() === username.toLowerCase();
         const action = isMe ? 'You' : u.isFollowing ? 'Following' : 'View profile';
-        const reels = Array.isArray(u.reels) ? u.reels : [];
-        const reelGrid = u.private
-          ? '<p style="margin:12px 0 2px;color:var(--text-secondary);font-size:13px;">This account is private.</p>'
-          : reels.length
-            ? `<div aria-label="Latest reels by ${escapeHtml(username)}" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;margin-top:12px;">${reels.map((reel, index) => `
-                <button type="button" class="search-reel-tile" data-reel="${escapeHtml(reel.id)}" aria-label="Open reel ${index + 1} from ${escapeHtml(username)}" style="position:relative;aspect-ratio:9/16;overflow:hidden;padding:0;border:0;border-radius:3px;background:#111;color:white;cursor:pointer;">
-                  <video src="${escapeHtml(reel.cloudinary_secure_url)}" poster="${escapeHtml(getReelPoster(reel.cloudinary_secure_url))}" muted playsinline preload="none" aria-hidden="true" style="width:100%;height:100%;object-fit:cover;"></video>
-                  <span style="position:absolute;left:4px;bottom:4px;color:white;font-size:10px;text-shadow:0 1px 3px #000;"><i class="fas fa-play" aria-hidden="true"></i> ${Number(reel.views || 0).toLocaleString()}</span>
-                </button>
-              `).join('')}</div>`
-            : '<p style="margin:12px 0 2px;color:var(--text-secondary);font-size:13px;">No reels yet.</p>';
         return `
           <article class="wb-card" style="padding:12px 14px;">
             <div class="search-profile-link" role="button" tabindex="0" aria-label="View ${escapeHtml(fullName)} profile" style="display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;" data-user="${escapeHtml(username)}">
@@ -73,7 +62,6 @@ export async function renderSearch() {
               </div>
               <span style="flex:0 0 auto;padding:7px 11px;border-radius:9px;background:var(--bg-secondary);color:var(--text-primary);font-size:12px;font-weight:600;">${action}</span>
             </div>
-            ${reelGrid}
           </article>
         `;
       }).join('');
@@ -87,9 +75,6 @@ export async function renderSearch() {
             openProfile();
           }
         });
-      });
-      results.querySelectorAll('.search-reel-tile').forEach(node => {
-        node.addEventListener('click', () => navigate(`/reels/${encodeURIComponent(node.dataset.reel)}`));
       });
     } catch (err) {
       if (currentRequest !== requestId) return;
@@ -106,10 +91,6 @@ export async function renderSearch() {
 
   document.getElementById('closeSearch').onclick = () => history.back();
   runSearch(input.value);
-}
-
-function getReelPoster(url) {
-  return String(url || '').replace('/video/upload/', '/video/upload/so_0,f_jpg/').replace(/\.(?:mp4|mov|webm)(\?.*)?$/i, '.jpg$1');
 }
 
 function escapeHtml(value) {

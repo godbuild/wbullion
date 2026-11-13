@@ -186,6 +186,7 @@ async function search(req, res) {
   const usernameQuery = safeRaw.startsWith('@') ? safeRaw : `@${safeRaw}`;
   const nameQuery = safeRaw.replace(/^@/, '');
   const sb = getAdminClient();
+  const includeReels = req.query.includeReels === '1';
   const { data: users, error } = await sb.from('users')
     .select('id, username, full_name, badge_awarded, admin, visibility')
     .or(`username.ilike.%${usernameQuery}%,full_name.ilike.%${nameQuery}%`)
@@ -196,11 +197,13 @@ async function search(req, res) {
     if (u.visibility === false && u.id !== viewer.id) {
       return { username: u.username, full_name: 'Not Available', private: true, reels: [] };
     }
-    const [{ data: follow }, { data: reels }] = await Promise.all([
+    const [{ data: follow }, reelResult] = await Promise.all([
       sb.from('follows').select('id').eq('follower_id', viewer.id).eq('following_id', u.id).maybeSingle(),
-      sb.from('reels')
-        .select('id, cloudinary_secure_url, caption, views, created_at')
-        .eq('user_id', u.id).eq('deleted', false).order('created_at', { ascending: false }).limit(4)
+      includeReels
+        ? sb.from('reels')
+          .select('id, cloudinary_secure_url, caption, views, created_at')
+          .eq('user_id', u.id).eq('deleted', false).order('created_at', { ascending: false }).limit(4)
+        : Promise.resolve({ data: [] })
     ]);
     return {
       id: u.id,
@@ -210,7 +213,7 @@ async function search(req, res) {
       admin: u.admin,
       isFollowing: !!follow,
       private: false,
-      reels: reels || []
+      reels: reelResult.data || []
     };
   }));
   res.status(200).json({ results: visible });

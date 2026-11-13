@@ -29,14 +29,20 @@ async function createTask(req, res) {
   const { title, descriptionHtml, buttonLabel, buttonUrl, payPerClick, rewardClick } = req.body || {};
   if (!title || title.trim().length < 3) return res.status(400).json({ error: 'Title required' });
 
+  const reward = rewardClick === undefined || rewardClick === null || rewardClick === '' ? 150 : Number(rewardClick);
+  const clickCost = payPerClick === undefined || payPerClick === null || payPerClick === '' ? 0 : Number(payPerClick);
+  if (!Number.isFinite(reward) || reward < 0 || !Number.isFinite(clickCost) || clickCost < 0) {
+    return res.status(400).json({ error: 'Rewards must be valid non-negative amounts' });
+  }
+
   const sb = getAdminClient();
   const { data, error } = await sb.from('tasks').insert({
     creator_id: user.id, title: title.trim().slice(0, 120),
     description_html: linkify(descriptionHtml || ''),
     button_label: buttonLabel ? String(buttonLabel).slice(0, 40) : null,
     button_url: buttonUrl || null,
-    pay_per_click: Number(payPerClick) || 0,
-    reward_click: Number(rewardClick) || 150
+    pay_per_click: clickCost,
+    reward_click: reward
   }).select('*').single();
   if (error) return res.status(500).json({ error: error.message });
 
@@ -98,26 +104,47 @@ async function completeTask(req, res) {
     .eq('task_id', taskId).eq('user_id', user.id).maybeSingle();
   if (existing) return res.status(400).json({ error: 'Already completed' });
 
-  const reward = Number(task.reward_click || 150);
-  await sb.from('task_completions').insert({ task_id: taskId, user_id: user.id, reward });
+  const baseReward = task.reward_click === null || task.reward_click === undefined ? 150 : Number(task.reward_click);
+  const payPerClick = Number(task.pay_per_click ?? 0);
+  if (!Number.isFinite(baseReward) || baseReward < 0 || !Number.isFinite(payPerClick) || payPerClick < 0) {
+    return res.status(500).json({ error: 'Task reward is invalid' });
+  }
+  const totalReward = baseReward + payPerClick;
 
-  const nb = Number(user.balance || 0) + reward;
-  await sb.from('users').update({ balance: nb }).eq('id', user.id);
-  await sb.from('transactions').insert({
-    user_id: user.id, type: 'credit', amount: reward, description: `Task reward — ${task.title}`
-  });
-
-  if (task.pay_per_click > 0) {
-    const { data: creator } = await sb.from('users').select('balance').eq('id', task.creator_id).maybeSingle();
-    if (creator) {
-      const cb = Math.max(0, Number(creator.balance || 0) - Number(task.pay_per_click));
-      await sb.from('users').update({ balance: cb }).eq('id', task.creator_id);
-      await sb.from('transactions').insert({
-        user_id: task.creator_id, type: 'debit', amount: task.pay_per_click,
-        description: `Task CPC — ${task.title}`
-      });
+  let creator = null;
+  if (payPerClick > 0) {
+    const { data, error } = await sb.from('users').select('balance').eq('id', task.creator_id).maybeSingle();
+    if (error) return res.status(500).json({ error: 'Could not verify task funding' });
+    creator = data;
+    if (!creator) return res.status(404).json({ error: 'Task creator not found' });
+    if (Number(creator.balance || 0) < payPerClick) {
+      return res.status(400).json({ error: 'The task creator does not have enough balance to fund this reward' });
     }
   }
 
-  res.status(200).json({ success: true, reward });
+  const { error: completionError } = await sb.from('task_completions').insert({
+    task_id: taskId, user_id: user.id, reward: totalReward
+  });
+  if (completionError) return res.status(409).json({ error: 'This task has already been completed or could not be claimed' });
+
+  const nb = Number(user.balance || 0) + totalReward;
+  const { error: balanceError } = await sb.from('users').update({ balance: nb }).eq('id', user.id);
+  if (balanceError) return res.status(500).json({ error: 'Task was recorded, but the reward could not be credited' });
+  const { error: creditError } = await sb.from('transactions').insert({
+    user_id: user.id, type: 'credit', amount: totalReward, description: `Task reward — ${task.title}`
+  });
+  if (creditError) return res.status(500).json({ error: 'Task reward was credited, but its transaction record could not be saved' });
+
+  if (payPerClick > 0 && creator) {
+    const cb = Math.max(0, Number(creator.balance || 0) - payPerClick);
+    const { error: debitError } = await sb.from('users').update({ balance: cb }).eq('id', task.creator_id);
+    if (debitError) return res.status(500).json({ error: 'Task reward was credited, but the creator debit could not be completed' });
+    const { error: debitRecordError } = await sb.from('transactions').insert({
+      user_id: task.creator_id, type: 'debit', amount: payPerClick,
+      description: `Task CPC — ${task.title}`
+    });
+    if (debitRecordError) return res.status(500).json({ error: 'Task reward was credited, but the creator debit record could not be saved' });
+  }
+
+  res.status(200).json({ success: true, reward: totalReward });
 }

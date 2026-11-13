@@ -25,6 +25,7 @@ let _state = {
   searchRequestId: 0,
   searchTerm: '',
   searchResults: [],
+  profileSearchResults: [],
   showingSearchGrid: false,
   viewingSearchResult: false,
   baseReels: [],
@@ -60,9 +61,9 @@ export async function renderReels() {
         <input id="reelSearchInput" aria-label="Search reels" placeholder="Search reels by caption or creator..." style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:rgba(0,0,0,0.75);color:white;font-size:15px;outline:none;">
       </div>
 
-      <section id="reelSearchResults" aria-label="Reel search results" hidden style="position:absolute;inset:0;z-index:45;overflow-y:auto;background:#080808;padding:calc(78px + env(safe-area-inset-top)) 2px calc(20px + env(safe-area-inset-bottom));">
-        <p id="reelSearchResultSummary" role="status" style="margin:0 12px 12px;color:#ccc;font-size:13px;"></p>
-        <div id="reelSearchGrid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;"></div>
+      <section id="reelSearchResults" aria-label="Reel search results" hidden style="position:absolute;inset:0;z-index:45;overflow-y:auto;background:#080808;padding:calc(78px + env(safe-area-inset-top)) 10px calc(20px + env(safe-area-inset-bottom));">
+        <p id="reelSearchResultSummary" role="status" style="margin:0 4px 12px;color:#ccc;font-size:13px;"></p>
+        <div id="reelSearchGrid" style="display:flex;flex-direction:column;gap:12px;"></div>
       </section>
 
       <div id="reelSlide" style="flex:1;position:relative;overflow:hidden;"></div>
@@ -155,12 +156,19 @@ async function searchReels(query, requestId) {
   _state.searchTerm = query;
   const deviceId = getDeviceId();
   const email = getCurrentUser()?.email;
+  const identity = new URLSearchParams({ deviceId });
+  if (email) identity.set('email', email);
   try {
-    const res = await fetch(`/api/reels?action=list&deviceId=${encodeURIComponent(deviceId)}${email ? `&email=${encodeURIComponent(email)}` : ''}&q=${encodeURIComponent(query)}`);
-    const data = await res.json();
+    const [reelsResponse, profilesResponse] = await Promise.all([
+      fetch(`/api/reels?action=list&${identity}&q=${encodeURIComponent(query)}`),
+      fetch(`/api/users?action=search&includeReels=1&${identity}&q=${encodeURIComponent(query)}`)
+    ]);
+    const [reelsData, profilesData] = await Promise.all([reelsResponse.json(), profilesResponse.json()]);
     if (requestId !== _state.searchRequestId) return;
-    if (!res.ok) throw new Error(data.error || 'Search failed');
-    _state.searchResults = data.reels || [];
+    if (!reelsResponse.ok) throw new Error(reelsData.error || 'Reel search failed');
+    if (!profilesResponse.ok) throw new Error(profilesData.error || 'Profile search failed');
+    _state.searchResults = reelsData.reels || [];
+    _state.profileSearchResults = profilesData.results || [];
     renderReelSearchGrid();
   } catch (error) {
     if (requestId !== _state.searchRequestId) return;
@@ -173,28 +181,81 @@ async function searchReels(query, requestId) {
 function renderReelSearchGrid() {
   const summary = document.getElementById('reelSearchResultSummary');
   const grid = document.getElementById('reelSearchGrid');
+  const profiles = _state.profileSearchResults;
+  const matchingReels = _state.searchResults;
+  const hasResults = profiles.length > 0 || matchingReels.length > 0;
   summary.style.color = '#ccc';
-  summary.textContent = _state.searchResults.length
-    ? `${_state.searchResults.length} reel${_state.searchResults.length === 1 ? '' : 's'} found`
-    : `No reels found for “${_state.searchTerm}”. Try a caption, description, or creator username.`;
-  grid.innerHTML = _state.searchResults.map((reel, index) => `
-    <button type="button" class="reel-search-tile" data-index="${index}" aria-label="Open reel ${index + 1}${reel.caption ? `: ${escapeAttr(reel.caption)}` : ''}" style="position:relative;aspect-ratio:9/16;overflow:hidden;padding:0;border:0;background:#161616;color:white;cursor:pointer;">
-      <video src="${escapeAttr(reel.cloudinary_secure_url)}" poster="${escapeAttr(getReelPoster(reel.cloudinary_secure_url))}" muted playsinline preload="none" aria-hidden="true" style="width:100%;height:100%;object-fit:cover;"></video>
-      <span style="position:absolute;left:7px;bottom:7px;display:flex;align-items:center;gap:4px;color:white;font-size:12px;text-shadow:0 1px 3px #000;"><i class="fas fa-play" aria-hidden="true"></i>${compact(reel.views || 0)}</span>
-    </button>
-  `).join('');
-  grid.querySelectorAll('.reel-search-tile').forEach(tile => {
-    tile.addEventListener('click', () => {
-      _state.reels = _state.searchResults;
-      _state.index = Number(tile.dataset.index);
-      _state.viewingSearchResult = true;
-      document.getElementById('reelSearchResults').hidden = true;
-      document.getElementById('reelSlide').style.display = 'block';
-      document.getElementById('searchBar').style.display = 'none';
-      document.getElementById('backToReelResults').hidden = false;
-      renderSlide();
+  summary.textContent = hasResults
+    ? `${profiles.length} profile${profiles.length === 1 ? '' : 's'} · ${matchingReels.length} matching reel${matchingReels.length === 1 ? '' : 's'}`
+    : `No profiles or reels found for “${_state.searchTerm}”. Try a name, username, caption, or description.`;
+
+  const profileCards = profiles.map((profile, profileIndex) => {
+    const reels = Array.isArray(profile.reels) ? profile.reels : [];
+    const username = String(profile.username || '@user');
+    const fullName = String(profile.full_name || username);
+    const badge = profile.badge_awarded || profile.admin ? '<i class="fas fa-check-circle" aria-label="Verified" style="color:#60a5fa;margin-left:5px;"></i>' : '';
+    return `
+      <article style="padding:12px;border:1px solid #292929;border-radius:14px;background:#111;">
+        <button type="button" class="reel-search-profile" data-profile-index="${profileIndex}" aria-label="Open ${escapeAttr(fullName)} profile" style="display:flex;align-items:center;gap:10px;width:100%;padding:0;border:0;background:none;color:white;text-align:left;cursor:pointer;">
+          <span aria-hidden="true" style="width:40px;height:40px;flex:0 0 40px;border-radius:50%;background:linear-gradient(135deg,#dbfedd,#d8cfff);display:flex;align-items:center;justify-content:center;font-weight:700;color:#1f2937;">${escapeHtml(fullName.charAt(0).toUpperCase())}</span>
+          <span style="min-width:0;flex:1;">
+            <span style="display:block;font-size:14px;font-weight:700;">${escapeHtml(fullName)}${badge}</span>
+            <span style="display:block;margin-top:2px;color:#aaa;font-size:12px;">${escapeHtml(username)}${profile.private ? ' · Private' : ''}</span>
+          </span>
+          <span style="font-size:12px;color:#aaa;">View profile</span>
+        </button>
+        ${reels.length ? `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:12px;">${reels.map((reel, reelIndex) => `
+          <button type="button" class="reel-search-profile-tile" data-profile-index="${profileIndex}" data-reel-index="${reelIndex}" aria-label="Play reel ${reelIndex + 1} from ${escapeAttr(username)}" style="position:relative;aspect-ratio:9/16;overflow:hidden;padding:0;border:0;border-radius:5px;background:#161616;color:white;cursor:pointer;">
+            <video src="${escapeAttr(reel.cloudinary_secure_url)}" poster="${escapeAttr(getReelPoster(reel.cloudinary_secure_url))}" muted playsinline preload="none" aria-hidden="true" style="width:100%;height:100%;object-fit:cover;"></video>
+            <span style="position:absolute;left:5px;bottom:5px;color:white;font-size:10px;text-shadow:0 1px 3px #000;"><i class="fas fa-play" aria-hidden="true"></i> ${compact(reel.views || 0)}</span>
+          </button>
+        `).join('')}</div>` : `<p style="margin:12px 0 0;color:#aaa;font-size:13px;">${profile.private ? 'This account is private.' : 'No reels yet.'}</p>`}
+      </article>
+    `;
+  }).join('');
+
+  const reelMatches = matchingReels.length ? `
+    <section aria-label="Matching reels">
+      <h3 style="margin:0 0 8px;font-size:14px;color:#ddd;">Matching reels</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px;">
+        ${matchingReels.map((reel, index) => `
+          <button type="button" class="reel-search-match-tile" data-index="${index}" aria-label="Open reel ${index + 1}${reel.caption ? `: ${escapeAttr(reel.caption)}` : ''}" style="position:relative;aspect-ratio:9/16;overflow:hidden;padding:0;border:0;background:#161616;color:white;cursor:pointer;">
+            <video src="${escapeAttr(reel.cloudinary_secure_url)}" poster="${escapeAttr(getReelPoster(reel.cloudinary_secure_url))}" muted playsinline preload="none" aria-hidden="true" style="width:100%;height:100%;object-fit:cover;"></video>
+            <span style="position:absolute;left:7px;bottom:7px;display:flex;align-items:center;gap:4px;color:white;font-size:12px;text-shadow:0 1px 3px #000;"><i class="fas fa-play" aria-hidden="true"></i>${compact(reel.views || 0)}</span>
+          </button>
+        `).join('')}
+      </div>
+    </section>
+  ` : '';
+
+  grid.innerHTML = `${profileCards}${reelMatches}`;
+  grid.querySelectorAll('.reel-search-profile').forEach(button => {
+    button.addEventListener('click', () => {
+      const profile = profiles[Number(button.dataset.profileIndex)];
+      if (profile?.username) navigate(`/profile/${encodeURIComponent(profile.username.replace(/^@/, ''))}`);
     });
   });
+  grid.querySelectorAll('.reel-search-profile-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const profile = profiles[Number(tile.dataset.profileIndex)];
+      if (profile?.reels?.length) openReelSearchPlaylist(profile.reels, Number(tile.dataset.reelIndex));
+    });
+  });
+  grid.querySelectorAll('.reel-search-match-tile').forEach(tile => {
+    tile.addEventListener('click', () => openReelSearchPlaylist(matchingReels, Number(tile.dataset.index)));
+  });
+}
+
+function openReelSearchPlaylist(reels, index) {
+  _state.reels = reels;
+  _state.index = index;
+  _state.viewingSearchResult = true;
+  _state.showingSearchGrid = false;
+  document.getElementById('reelSearchResults').hidden = true;
+  document.getElementById('reelSlide').style.display = 'block';
+  document.getElementById('searchBar').style.display = 'none';
+  document.getElementById('backToReelResults').hidden = false;
+  renderSlide();
 }
 
 function showReelSearchResults() {
@@ -209,8 +270,9 @@ function showReelSearchResults() {
 function resetReelSearch() {
   _state.searchRequestId++;
   _state.searchTerm = '';
-  const hadSearchResults = _state.searchResults.length > 0;
+  const hadSearchResults = _state.searchResults.length > 0 || _state.profileSearchResults.length > 0;
   _state.searchResults = [];
+  _state.profileSearchResults = [];
   _state.showingSearchGrid = false;
   if (hadSearchResults || _state.viewingSearchResult) {
     _state.reels = _state.baseReels;
@@ -247,6 +309,7 @@ function renderSlide() {
         <div class="reel-play-icon" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 0.15s;">
           <i class="fas fa-play" style="font-size:60px;color:rgba(255,255,255,0.85);"></i>
         </div>
+        <div class="reel-speed-indicator" aria-live="polite" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:9px 14px;border-radius:999px;background:rgba(0,0,0,0.65);color:white;font-size:14px;font-weight:700;pointer-events:none;z-index:4;">2× speed</div>
 
         <div style="position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:18px;align-items:center;z-index:5;">
           <button class="reel-profile" data-username="${r.username}" style="background:none;border:none;color:white;cursor:pointer;text-align:center;">
@@ -277,7 +340,65 @@ function renderSlide() {
   wrap.querySelectorAll('.reel-slide').forEach(slide => {
     const video = slide.querySelector('video');
     const playIcon = slide.querySelector('.reel-play-icon');
+    let holdTimer = null;
+    let holdStartedAt = 0;
+    let holdStartX = 0;
+    let holdStartY = 0;
+    let holdMoved = false;
+    let skipNextSlideClick = false;
+    const speedIndicator = slide.querySelector('.reel-speed-indicator');
+    const resetHoldSpeed = () => {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+      video.playbackRate = 1;
+      speedIndicator.style.display = 'none';
+    };
+    const cancelHold = () => {
+      holdStartedAt = 0;
+      holdMoved = false;
+      resetHoldSpeed();
+    };
+
+    slide.addEventListener('pointerdown', event => {
+      if (Number(slide.dataset.index) !== _state.index || event.target.closest('button, a, .reel-more')) return;
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      holdStartedAt = Date.now();
+      holdStartX = event.clientX;
+      holdStartY = event.clientY;
+      holdMoved = false;
+      holdTimer = setTimeout(() => {
+        if (!holdStartedAt || holdMoved) return;
+        video.playbackRate = 2;
+        speedIndicator.style.display = 'block';
+      }, 160);
+    });
+    slide.addEventListener('pointermove', event => {
+      if (!holdStartedAt || holdMoved) return;
+      if (Math.hypot(event.clientX - holdStartX, event.clientY - holdStartY) > 14) {
+        holdMoved = true;
+        resetHoldSpeed();
+      }
+    });
+    slide.addEventListener('pointerup', () => {
+      if (!holdStartedAt) return;
+      const heldFor = Date.now() - holdStartedAt;
+      const shouldDownload = !holdMoved && heldFor >= 1000;
+      holdStartedAt = 0;
+      holdMoved = false;
+      resetHoldSpeed();
+      if (shouldDownload) {
+        skipNextSlideClick = true;
+        showDownloadConfirmation(_state.reels[Number(slide.dataset.index)]);
+      }
+    });
+    slide.addEventListener('pointercancel', cancelHold);
+    slide.addEventListener('pointerleave', cancelHold);
+
     slide.addEventListener('click', (e) => {
+      if (skipNextSlideClick) {
+        skipNextSlideClick = false;
+        return;
+      }
       if (e.target.closest('button') || e.target.closest('.reel-more')) return;
       if (video.paused) {
         video.play();
@@ -437,6 +558,39 @@ async function deleteReel(id) {
   _state.reels = _state.reels.filter(r => r.id !== id);
   if (_state.index >= _state.reels.length) _state.index = Math.max(0, _state.reels.length - 1);
   renderSlide();
+}
+
+async function showDownloadConfirmation(reel) {
+  if (!reel?.id) return showToast('This reel cannot be downloaded.');
+  const confirmed = await showConfirm(
+    'Continue to ask the server to verify access and start the browser download. Your browser or device controls where files are saved; this website cannot inspect or open system storage settings.',
+    'Download reel?',
+    'Continue'
+  );
+  if (!confirmed) return;
+
+  const identity = new URLSearchParams({ id: String(reel.id), deviceId: getDeviceId() });
+  const email = getCurrentUser()?.email;
+  if (email) identity.set('email', email);
+  const url = `/api/reels?action=download&${identity}`;
+  try {
+    const check = await fetch(url, { method: 'HEAD' });
+    if (!check.ok) {
+      const data = await check.json().catch(() => ({}));
+      showToast(data.error || 'Could not verify access to this reel.');
+      return;
+    }
+    const link = document.createElement('a');
+    const safeId = String(reel.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'video';
+    link.href = url;
+    link.download = `reel-${safeId}.mp4`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch {
+    showToast('Could not start the download. Check your browser download settings and try again.');
+  }
 }
 
 function getReelPoster(url) {
