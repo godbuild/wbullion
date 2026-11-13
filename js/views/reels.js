@@ -304,12 +304,11 @@ function renderSlide() {
     const descShort = desc.length > 90 ? desc.slice(0, 90) + '…' : desc;
 
     return `
-      <div class="reel-slide" data-index="${i}" style="position:absolute;inset:0;transform:translateY(${(i - _state.index) * 100}%);transition:transform 0.3s ease;background:#000;">
-        <video src="${r.cloudinary_secure_url}" playsinline loop preload="metadata" style="width:100%;height:100%;object-fit:contain;background:#000;"></video>
+      <div class="reel-slide" data-index="${i}" style="position:absolute;inset:0;transform:translateY(${(i - _state.index) * 100}%);transition:transform 0.3s ease;background:#000;-webkit-touch-callout:none;user-select:none;">
+        <video src="${r.cloudinary_secure_url}" playsinline loop preload="metadata" draggable="false" style="width:100%;height:100%;object-fit:contain;background:#000;pointer-events:none;-webkit-touch-callout:none;user-select:none;"></video>
         <div class="reel-play-icon" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 0.15s;">
           <i class="fas fa-play" style="font-size:60px;color:rgba(255,255,255,0.85);"></i>
         </div>
-        <div class="reel-speed-indicator" aria-live="polite" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:9px 14px;border-radius:999px;background:rgba(0,0,0,0.65);color:white;font-size:14px;font-weight:700;pointer-events:none;z-index:4;">2× speed</div>
 
         <div style="position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:18px;align-items:center;z-index:5;">
           <button class="reel-profile" data-username="${r.username}" style="background:none;border:none;color:white;cursor:pointer;text-align:center;">
@@ -321,6 +320,7 @@ function renderSlide() {
             <i class="fas fa-thumbs-up"></i>
             <span style="font-size:12px;">${compact((r.likes || []).length)}</span>
           </button>
+          <button type="button" class="reel-speed-toggle" data-index="${i}" aria-label="Turn on 2× playback speed" aria-pressed="false" style="width:40px;height:40px;border:1px solid rgba(255,255,255,0.35);border-radius:50%;background:rgba(0,0,0,0.28);backdrop-filter:blur(6px);color:rgba(255,255,255,0.84);cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">2×</button>
           ${isOwner ? `<button class="reel-delete" data-id="${r.id}" style="background:none;border:none;color:white;cursor:pointer;font-size:22px;"><i class="fas fa-trash"></i></button>` : ''}
         </div>
 
@@ -340,25 +340,20 @@ function renderSlide() {
   wrap.querySelectorAll('.reel-slide').forEach(slide => {
     const video = slide.querySelector('video');
     const playIcon = slide.querySelector('.reel-play-icon');
-    let holdTimer = null;
     let holdStartedAt = 0;
     let holdStartX = 0;
     let holdStartY = 0;
     let holdMoved = false;
     let skipNextSlideClick = false;
-    const speedIndicator = slide.querySelector('.reel-speed-indicator');
-    const resetHoldSpeed = () => {
-      clearTimeout(holdTimer);
-      holdTimer = null;
-      video.playbackRate = 1;
-      speedIndicator.style.display = 'none';
-    };
     const cancelHold = () => {
       holdStartedAt = 0;
       holdMoved = false;
-      resetHoldSpeed();
     };
 
+    slide.addEventListener('contextmenu', event => event.preventDefault());
+    slide.addEventListener('selectstart', event => event.preventDefault());
+    video.addEventListener('contextmenu', event => event.preventDefault());
+    video.addEventListener('dragstart', event => event.preventDefault());
     slide.addEventListener('pointerdown', event => {
       if (Number(slide.dataset.index) !== _state.index || event.target.closest('button, a, .reel-more')) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -366,26 +361,16 @@ function renderSlide() {
       holdStartX = event.clientX;
       holdStartY = event.clientY;
       holdMoved = false;
-      holdTimer = setTimeout(() => {
-        if (!holdStartedAt || holdMoved) return;
-        video.playbackRate = 2;
-        speedIndicator.style.display = 'block';
-      }, 160);
     });
     slide.addEventListener('pointermove', event => {
       if (!holdStartedAt || holdMoved) return;
-      if (Math.hypot(event.clientX - holdStartX, event.clientY - holdStartY) > 14) {
-        holdMoved = true;
-        resetHoldSpeed();
-      }
+      if (Math.hypot(event.clientX - holdStartX, event.clientY - holdStartY) > 14) holdMoved = true;
     });
     slide.addEventListener('pointerup', () => {
       if (!holdStartedAt) return;
-      const heldFor = Date.now() - holdStartedAt;
-      const shouldDownload = !holdMoved && heldFor >= 1000;
+      const shouldDownload = !holdMoved && Date.now() - holdStartedAt >= 1000;
       holdStartedAt = 0;
       holdMoved = false;
-      resetHoldSpeed();
       if (shouldDownload) {
         skipNextSlideClick = true;
         showDownloadConfirmation(_state.reels[Number(slide.dataset.index)]);
@@ -444,16 +429,29 @@ function renderSlide() {
     if (e.detail > 1) return;
     toggleLike(btn);
   });
+  wrap.querySelectorAll('.reel-speed-toggle').forEach(btn => btn.onclick = event => {
+    event.stopPropagation();
+    const video = wrap.querySelector(`.reel-slide[data-index="${btn.dataset.index}"] video`);
+    if (!video) return;
+    const enabled = btn.getAttribute('aria-pressed') !== 'true';
+    video.playbackRate = enabled ? 2 : 1;
+    btn.setAttribute('aria-pressed', String(enabled));
+    btn.setAttribute('aria-label', `${enabled ? 'Turn off' : 'Turn on'} 2× playback speed`);
+    btn.style.color = enabled ? '#3ba072' : 'rgba(255,255,255,0.84)';
+    btn.style.background = enabled ? 'rgba(59,160,114,0.2)' : 'rgba(0,0,0,0.28)';
+    btn.style.borderColor = enabled ? 'rgba(59,160,114,0.85)' : 'rgba(255,255,255,0.35)';
+  });
   wrap.querySelectorAll('.reel-profile').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); navigate(`/profile/${btn.dataset.username}`); });
   wrap.querySelectorAll('.reel-delete').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); deleteReel(btn.dataset.id); });
   wrap.querySelectorAll('.reel-desc').forEach(p => p.addEventListener('click', e => {
     const button = e.target.closest('.reel-more');
-    if (!button) return;
+    const expanded = p.querySelector('.reel-more')?.getAttribute('aria-expanded') === 'true';
+    if (!button && !expanded) return;
     e.stopPropagation();
-    const expanded = button.getAttribute('aria-expanded') === 'true';
-    const text = expanded ? p.dataset.short : p.dataset.full;
-    const moreButton = expanded ? 'more' : 'less';
-    p.innerHTML = `${escapeHtml(text)} <button type="button" class="reel-more" aria-expanded="${!expanded}" style="font-weight:600;background:none;border:0;padding:0;color:inherit;cursor:pointer;">${moreButton}</button>`;
+    const nextExpanded = button ? !expanded : false;
+    const text = nextExpanded ? p.dataset.full : p.dataset.short;
+    const moreButton = nextExpanded ? 'less' : 'more';
+    p.innerHTML = `${escapeHtml(text)} <button type="button" class="reel-more" aria-expanded="${nextExpanded}" style="font-weight:600;background:none;border:0;padding:0;color:inherit;cursor:pointer;">${moreButton}</button>`;
   }));
   wrap.querySelectorAll('button').forEach(button => {
     ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(type => {
@@ -503,7 +501,17 @@ function updatePositions() {
   document.querySelectorAll('.reel-slide').forEach(s => {
     s.style.transform = `translateY(${(Number(s.dataset.index) - _state.index) * 100}%)`;
   });
-  document.querySelectorAll('.reel-slide video').forEach(v => v.pause());
+  document.querySelectorAll('.reel-slide video').forEach(video => {
+    video.pause();
+    video.playbackRate = 1;
+  });
+  document.querySelectorAll('.reel-speed-toggle').forEach(button => {
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', 'Turn on 2× playback speed');
+    button.style.color = 'rgba(255,255,255,0.84)';
+    button.style.background = 'rgba(0,0,0,0.28)';
+    button.style.borderColor = 'rgba(255,255,255,0.35)';
+  });
   const cur = document.querySelector(`.reel-slide[data-index="${_state.index}"] video`);
   cur?.play().catch(() => {});
 }
