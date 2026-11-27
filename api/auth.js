@@ -6,6 +6,7 @@ export default async function handler(req, res) {
   switch (action) {
     case 'register':     return register(req, res);
     case 'login':        return login(req, res);
+    case 'reactivate':   return reactivate(req, res);
     case 'device-login': return deviceLogin(req, res);
     default: return res.status(400).json({ error: 'Unknown auth action' });
   }
@@ -77,10 +78,11 @@ async function login(req, res) {
 
   const clean = identifier.trim().toLowerCase();
   const sb = getAdminClient();
-  const { data: user } = await sb.from('users').select('*')
-    .or(`email.eq.${clean},username.eq.${clean}`)
-    .is('deleted_at', null).maybeSingle();
-
+  const lookup = clean.startsWith('@')
+    ? sb.from('users').select('*').eq('username', clean)
+    : sb.from('users').select('*').eq('email', clean);
+  const { data: user, error: lookupError } = await lookup.maybeSingle();
+  if (lookupError) return res.status(500).json({ error: 'Could not sign in. Please try again.' });
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   if (user.banned) return res.status(403).json({
     error: `Your account has been banned from operation due to ${user.ban_reason || 'violation of terms'}`
@@ -88,6 +90,11 @@ async function login(req, res) {
 
   const ok = await verifyPassword(password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+
+  if (user.deleted_at) {
+    if (isAnonymizedAccount(user)) return res.status(401).json({ error: 'Invalid credentials' });
+    return res.status(200).json({ success: false, requiresReactivation: true });
+  }
 
   if (deviceId) {
     // A device is only a local session handle, not an account identity. Move
@@ -107,6 +114,44 @@ async function login(req, res) {
 
   const { password_hash, ...safeUser } = user;
   res.status(200).json({ success: true, user: safeUser });
+}
+
+function isAnonymizedAccount(user) {
+  const anonymizedPrefix = /^(?:deleted|del|wiped|reset)_\d+_/i;
+  return anonymizedPrefix.test(user.username || '') || anonymizedPrefix.test(user.email || '');
+}
+
+async function reactivate(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { identifier, password, deviceId } = req.body || {};
+  if (!identifier || !password || !deviceId) return res.status(400).json({ error: 'All fields required' });
+
+  const clean = identifier.trim().toLowerCase();
+  const sb = getAdminClient();
+  const lookup = clean.startsWith('@')
+    ? sb.from('users').select('*').eq('username', clean)
+    : sb.from('users').select('*').eq('email', clean);
+  const { data: user, error: lookupError } = await lookup.maybeSingle();
+  if (lookupError) return res.status(500).json({ error: 'Could not reactivate your account. Please try again.' });
+  if (!user || !user.deleted_at || isAnonymizedAccount(user)) {
+    return res.status(400).json({ error: 'This account cannot be reactivated.' });
+  }
+  if (user.banned) return res.status(403).json({ error: 'This account cannot be reactivated.' });
+
+  const ok = await verifyPassword(password, user.password_hash);
+  if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+
+  const { data: reactivatedUser, error } = await sb.from('users').update({
+    deleted_at: null,
+    devices: [deviceId],
+    updated_at: new Date().toISOString()
+  }).eq('id', user.id).eq('deleted_at', user.deleted_at)
+    .select('*').maybeSingle();
+  if (error) return res.status(500).json({ error: 'Could not reactivate your account. Please try again.' });
+  if (!reactivatedUser) return res.status(409).json({ error: 'This account has already changed. Please sign in again.' });
+
+  const { password_hash, ...safeUser } = reactivatedUser;
+  return res.status(200).json({ success: true, user: safeUser });
 }
 
 // ---------- device-login ----------

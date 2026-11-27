@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     case 'follow-info':     return followInfo(req, res);
     case 'logout':          return logout(req, res);
     case 'track-view':      return trackView(req, res);
+    case 'deactivate':      return deactivateUser(req, res);
     case 'delete':          return deleteUser(req, res);
     case 'sptf':            return sptf(req, res);
     default: return res.status(400).json({ error: 'Unknown users action' });
@@ -336,7 +337,7 @@ async function follow(req, res) {
   const clean = username.trim().toLowerCase().startsWith('@') ? username.trim().toLowerCase() : '@' + username.trim().toLowerCase();
   if (clean === user.username) return res.status(400).json({ error: 'You cannot follow yourself' });
   const sb = getAdminClient();
-  const { data: target } = await sb.from('users').select('id, username, visibility, balance').eq('username', clean).maybeSingle();
+  const { data: target } = await sb.from('users').select('id, username, visibility, balance').eq('username', clean).is('deleted_at', null).maybeSingle();
   if (!target) return res.status(404).json({ error: 'User not found' });
   if (target.visibility === false) return res.status(403).json({ error: 'Not Available' });
   if (action === 'unfollow') {
@@ -363,7 +364,7 @@ async function followInfo(req, res) {
   if (!username || !type) return res.status(400).json({ error: 'username and type required' });
   const sb = getAdminClient();
   const clean = username.startsWith('@') ? username.toLowerCase() : '@' + username.toLowerCase();
-  const { data: target } = await sb.from('users').select('id').eq('username', clean).maybeSingle();
+  const { data: target } = await sb.from('users').select('id').eq('username', clean).is('deleted_at', null).maybeSingle();
   if (!target) return res.status(404).json({ error: 'User not found' });
   let ids;
   if (type === 'followers') {
@@ -374,7 +375,7 @@ async function followInfo(req, res) {
     ids = (data || []).map(x => x.following_id);
   }
   if (ids.length === 0) return res.status(200).json({ users: [] });
-  const { data: users } = await sb.from('users').select('id, username, full_name, badge_awarded, admin, visibility').in('id', ids);
+  const { data: users } = await sb.from('users').select('id, username, full_name, badge_awarded, admin, visibility').in('id', ids).is('deleted_at', null);
   res.status(200).json({ users: users || [] });
 }
 
@@ -399,7 +400,7 @@ async function trackView(req, res) {
   if (!username) return res.status(400).json({ error: 'username required' });
   const clean = username.startsWith('@') ? username.toLowerCase() : '@' + username.toLowerCase();
   const sb = getAdminClient();
-  const { data: target } = await sb.from('users').select('id').eq('username', clean).maybeSingle();
+  const { data: target } = await sb.from('users').select('id').eq('username', clean).is('deleted_at', null).maybeSingle();
   if (!target || target.id === viewer.id) return res.status(200).json({ success: true });
   const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
   const { data: existing } = await sb.from('profile_views').select('id').eq('viewer_id', viewer.id).eq('viewed_id', target.id).gte('viewed_at', dayStart.toISOString()).maybeSingle();
@@ -407,6 +408,25 @@ async function trackView(req, res) {
   await sb.from('profile_views').insert({ viewer_id: viewer.id, viewed_id: target.id });
   await notify(target.id, { category: 'profile_view', title: 'New profile view', body: `${viewer.username} viewed your profile`, meta: { profileUsername: viewer.username } });
   res.status(200).json({ success: true });
+}
+
+async function deactivateUser(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const deviceId = String(req.body?.deviceId || req.query?.deviceId || '').trim();
+  if (!deviceId) return res.status(401).json({ error: 'Not logged in' });
+  const sb = getAdminClient();
+  const { data: user, error: lookupError } = await sb.from('users').select('id')
+    .contains('devices', [deviceId]).is('deleted_at', null).maybeSingle();
+  if (lookupError) return res.status(500).json({ error: 'Could not verify account. Please try again.' });
+  if (!user) return res.status(401).json({ error: 'Not logged in' });
+  const { data, error } = await sb.from('users').update({
+    deleted_at: new Date().toISOString(),
+    devices: [],
+    updated_at: new Date().toISOString()
+  }).eq('id', user.id).is('deleted_at', null).select('id').maybeSingle();
+  if (error) return res.status(500).json({ error: 'Could not deactivate account. Please try again.' });
+  if (!data) return res.status(409).json({ error: 'Account status changed. Please sign in again.' });
+  return res.status(200).json({ success: true });
 }
 
 async function deleteUser(req, res) {
@@ -433,7 +453,7 @@ async function sptf(req, res) {
   const followingIds = new Set((followRows || []).map(r => r.following_id));
   let referrer = null;
   if (user.referred_by) {
-    const { data } = await sb.from('users').select('id, username, full_name, badge_awarded, admin, visibility, hoep_enabled').eq('username', user.referred_by).maybeSingle();
+    const { data } = await sb.from('users').select('id, username, full_name, badge_awarded, admin, visibility, hoep_enabled').eq('username', user.referred_by).is('deleted_at', null).maybeSingle();
     if (data && !followingIds.has(data.id) && data.visibility !== false) referrer = { ...data, referredYou: true };
   }
   const { data: hoepUsers } = await sb.from('users')

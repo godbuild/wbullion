@@ -1,6 +1,6 @@
 import { navigate } from '../router.js';
 import { getDeviceId, setCurrentUser } from '../auth.js';
-import { showAlert } from '../modal.js';
+import { showAlert, showConfirm } from '../modal.js';
 
 export function renderLogin() {
   const el = document.getElementById('viewContainer');
@@ -72,7 +72,33 @@ async function handleLogin(e) {
         : (data.error || 'Invalid email or password');
       throw new Error(message);
     }
-    if (!data.user) throw new Error('The login service returned an invalid response. Please try again.');
+
+    if (data.requiresReactivation) {
+      const approved = await showConfirm(
+        'This account is deactivated. Reactivate it to restore access to your profile and account data? No payment is required.',
+        'Reactivate account',
+        'Reactivate'
+      );
+      if (!approved) {
+        btn.disabled = false;
+        btn.innerHTML = 'Log In <i class="fas fa-arrow-right"></i>';
+        return;
+      }
+
+      const reactivationResponse = await fetch('/api/auth?action=reactivate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password, deviceId: getDeviceId() })
+      });
+      const reactivationData = await reactivationResponse.json().catch(() => ({}));
+      if (!reactivationResponse.ok || !reactivationData.user) {
+        throw new Error(reactivationData.error || 'Could not reactivate your account. Please try again.');
+      }
+      data.user = reactivationData.user;
+      data.success = true;
+    }
+
+    if (!data.success || !data.user) throw new Error('The login service returned an invalid response. Please try again.');
 
     setCurrentUser(data.user);
     navigate(data.user.activated ? '/home' : '/activation');

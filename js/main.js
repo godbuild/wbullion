@@ -4,6 +4,7 @@ import { registerRoute, startRouter, navigate, onRouteChange, getCurrentPath } f
 import { updateNavbar } from './navbar.js';
 import { runBoot } from './boot.js';
 import { showAlert } from './modal.js';
+import { applyTheme, watchSystemTheme } from './theme.js';
 import { initWWaiter, wwaiterCopy } from './wwaiter.js';
 import { initRealtime, stopRealtime } from './realtime.js';
 import { loadUserFromServer, getCurrentUser, isBanned } from './auth.js';
@@ -105,11 +106,6 @@ registerRoute('/badges', () => { if (requireAuth()) renderBadges(); });
 registerRoute('/referral', () => { if (requireAuth()) renderReferral(); });
 
 // ---------- Theme ----------
-function applyTheme(theme) {
-  localStorage.setItem('wb_theme', theme);
-  document.documentElement.setAttribute('data-theme', theme);
-}
-
 onRouteChange((path) => {
   const view = document.getElementById('viewContainer');
   const app = document.getElementById('app');
@@ -129,6 +125,8 @@ onRouteChange((path) => {
 
 // ---------- Boot ----------
 (async () => {
+  applyTheme(localStorage.getItem('wb_theme') || 'system');
+  watchSystemTheme();
   const configPromise = getConfig();
   const supabasePromise = getSupabase();
 

@@ -1,6 +1,7 @@
 import { navigate } from '../router.js';
+import { applyTheme } from '../theme.js';
 import { getCurrentUser, getDeviceId, setCurrentUser, logout } from '../auth.js';
-import { showToast, showAlert, showConfirm } from '../modal.js';
+import { showToast, showConfirm } from '../modal.js';
 
 const THEME_CYCLE = ['light', 'dark', 'system'];
 const THEME_ICONS = { light: 'fa-sun', dark: 'fa-moon', system: 'fa-adjust' };
@@ -36,12 +37,10 @@ export function renderSettings() {
       </label>
     </div>
 
-    ${user?.badge_awarded ? `
-      <button class="wb-card" id="badgesBtn" style="display:flex;justify-content:space-between;align-items:center;padding:16px;margin-bottom:10px;background:var(--bg-primary);border:1px solid var(--border-color);width:100%;cursor:pointer;text-align:left;">
-        <span style="font-weight:600;">Badges</span>
-        <i class="fas fa-chevron-right"></i>
-      </button>
-    ` : ''}
+    <button class="wb-card" id="badgesBtn" style="display:flex;justify-content:space-between;align-items:center;padding:16px;margin-bottom:10px;background:var(--bg-primary);border:1px solid var(--border-color);width:100%;cursor:pointer;text-align:left;">
+      <span style="font-weight:600;">Badges &amp; verification</span>
+      <i class="fas fa-chevron-right"></i>
+    </button>
 
     <button class="wb-card" id="hoepBtn" style="display:flex;justify-content:space-between;align-items:center;padding:16px;margin-bottom:10px;background:var(--bg-primary);border:1px solid var(--border-color);width:100%;cursor:pointer;text-align:left;">
       <span style="font-weight:600;">Help Others Earn Program</span>
@@ -80,7 +79,7 @@ export function renderSettings() {
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:20px;">
       <button id="logoutBtn" style="padding:14px;background:var(--bg-secondary);color:var(--text-primary);border:none;border-radius:12px;font-weight:600;cursor:pointer;">Logout</button>
-      <button id="deleteBtn" style="padding:14px;background:var(--bg-secondary);color:#ef4444;border:none;border-radius:12px;font-weight:600;cursor:pointer;">Delete Account</button>
+      <button id="manageAccountBtn" style="padding:14px;background:var(--bg-secondary);color:var(--text-primary);border:none;border-radius:12px;font-weight:600;cursor:pointer;">Manage Account</button>
     </div>
 
     <div class="wb-footer" style="text-align:center;font-size:12px;color:var(--text-secondary);margin-top:30px;line-height:1.8;">
@@ -94,8 +93,7 @@ export function renderSettings() {
   document.getElementById('themeBtn').onclick = () => {
     const cur = localStorage.getItem('wb_theme') || 'system';
     const next = THEME_CYCLE[(THEME_CYCLE.indexOf(cur) + 1) % THEME_CYCLE.length];
-    localStorage.setItem('wb_theme', next);
-    document.documentElement.setAttribute('data-theme', next);
+    applyTheme(next);
     document.querySelector('#themeBtn i').className = `fas ${THEME_ICONS[next]}`;
     showToast(`Theme: ${next}`);
   };
@@ -138,15 +136,68 @@ export function renderSettings() {
     navigate('/login');
   };
 
-  document.getElementById('deleteBtn').onclick = async () => {
-    const ok = await showConfirm('Delete your account permanently? This cannot be undone.', 'Delete Account');
-    if (!ok) return;
-    const ok2 = await showConfirm('Final warning: all data will be lost.', 'Confirm Deletion');
-    if (!ok2) return;
-    const r = await fetch(`/api/users?action=delete&deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'POST' });
-    const d = await r.json();
-    if (!r.ok) return showToast(d.error);
-    await logout();
-    navigate('/login');
+  document.getElementById('manageAccountBtn').onclick = () => {
+    const modalRoot = document.getElementById('modalRoot');
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop" id="manageAccountBackdrop" role="presentation">
+        <section class="modal-box" role="dialog" aria-modal="true" aria-labelledby="manageAccountTitle" style="width:min(92vw,420px);">
+          <h2 id="manageAccountTitle" style="font-size:20px;font-weight:700;">Manage account</h2>
+          <p style="margin:10px 0 18px;color:var(--text-secondary);line-height:1.5;">Deactivate temporarily and restore your account later, or permanently delete it.</p>
+          <div style="display:grid;gap:10px;">
+            <button id="deactivateAccountAction" class="wb-btn-primary" type="button">Deactivate account</button>
+            <button id="deleteAccountAction" type="button" style="padding:12px;border:1px solid rgba(239,68,68,.4);border-radius:12px;background:rgba(239,68,68,.08);color:#ef4444;font-weight:700;cursor:pointer;">Delete account</button>
+            <button id="cancelManageAccount" type="button" style="padding:11px;border:0;background:transparent;color:var(--text-secondary);cursor:pointer;">Cancel</button>
+          </div>
+        </section>
+      </div>`;
+
+    const backdrop = document.getElementById('manageAccountBackdrop');
+    const close = () => modalRoot.replaceChildren();
+    document.getElementById('cancelManageAccount').onclick = close;
+    backdrop.addEventListener('click', event => {
+      if (event.target === backdrop) close();
+    });
+
+    document.getElementById('deactivateAccountAction').onclick = async () => {
+      close();
+      const approved = await showConfirm(
+        'Your profile will disappear from search and this device will be logged out. Your data will remain saved. Sign in later and confirm reactivation to restore access. No payment is required.',
+        'Deactivate account',
+        'Deactivate'
+      );
+      if (!approved) return;
+      try {
+        const response = await fetch('/api/users?action=deactivate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId: getDeviceId() })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return showToast(data.error || 'Could not deactivate account.');
+        await logout();
+        navigate('/login');
+      } catch {
+        showToast('Could not reach the account service. Try again.');
+      }
+    };
+
+    document.getElementById('deleteAccountAction').onclick = async () => {
+      close();
+      const approved = await showConfirm('Delete your account permanently? This cannot be undone.', 'Delete account', 'Continue');
+      if (!approved) return;
+      const finalApproval = await showConfirm('Final warning: all account data will be permanently removed.', 'Confirm deletion', 'Delete permanently');
+      if (!finalApproval) return;
+      try {
+        const response = await fetch(`/api/users?action=delete&deviceId=${encodeURIComponent(getDeviceId())}`, { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return showToast(data.error || 'Could not delete account.');
+        await logout();
+        navigate('/login');
+      } catch {
+        showToast('Could not reach the account service. Try again.');
+      }
+    };
+
+    document.getElementById('deactivateAccountAction').focus();
   };
 }
