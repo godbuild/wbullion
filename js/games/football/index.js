@@ -13,23 +13,102 @@ import { apiFetch } from '../../lib/api.js';
 
 let S = null;
 
-function renderFootballFailure(el, { title, message, retryLabel, onRetry }) {
+function disposeFootballEngine(engine) {
+  if (!engine) return;
+  try { engine.stopRenderLoop(); } catch {}
+  try { engine.dispose(); } catch {}
+}
+
+async function renderFootball2DFallback(el, config, takerData, failedStage) {
+  cleanupFootballEngine();
+  let portions = Array.from({ length: 9 }, () => Math.floor(Math.random() * 61) + 120);
+  apiFetch('/api/games?action=odds', {
+    method: 'POST',
+    body: JSON.stringify({ deviceId: getDeviceId(), game: 'football' })
+  }).then(data => {
+    if (Array.isArray(data.portions) && data.portions.length === 9) portions = data.portions;
+  }).catch(() => {});
+  let selectedPortion = 4;
+  let submitting = false;
+  const balance = Number(config?.wallet?.balance) || 0;
+
   el.innerHTML = `
-    <div class="football-failure" style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
-      <button id="footballBack" class="football-back-button" type="button" aria-label="Back to games" title="Back to games"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
-      <div class="football-failure-content">
-        <i class="fas fa-triangle-exclamation" style="font-size:42px;color:#f59e0b;margin-bottom:16px;" aria-hidden="true"></i>
-        <h3>${title}</h3>
-        <p style="opacity:.8;margin:10px 0 20px;">${message}</p>
-        <button id="footballRetry" class="wb-btn-primary" type="button">${retryLabel}</button>
-      </div>
-    </div>`;
-  document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
-  document.getElementById('footballRetry')?.addEventListener('click', event => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    button.textContent = 'Retrying…';
-    window.setTimeout(onRetry, 0);
+    <main class="football-2d-mode" style="position:fixed;inset:0;overflow:auto;background:radial-gradient(ellipse at 50% 30%,#22543d 0%,#102a24 58%,#081713 100%);color:#fff;padding:calc(16px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));font-family:inherit;">
+      <header style="display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:620px;margin:0 auto 24px;">
+        <button id="football2dClose" type="button" aria-label="Back to games" style="width:42px;height:42px;border:1px solid #ffffff40;border-radius:50%;background:#07140fbf;color:#fff;font-size:18px;cursor:pointer;">‹</button>
+        <div style="text-align:center;"><div style="font-size:11px;letter-spacing:.18em;color:#a7f3d0;">FOOTBALL SHOOTOUT</div><div style="font-weight:800;font-size:17px;">2D PLAY MODE</div></div>
+        <div id="football2dBalance" aria-label="Wallet balance" style="font-size:13px;font-weight:700;background:#07140fbf;border:1px solid #ffffff30;border-radius:24px;padding:10px 12px;white-space:nowrap;">${money(balance)}</div>
+      </header>
+      <section style="max-width:620px;margin:auto;text-align:center;">
+        <p style="margin:0 0 18px;color:#d1fae5;font-size:13px;">3D graphics are unavailable here. Your shootout still works in this lightweight mode.</p>
+        <div aria-label="Goal target zones" style="position:relative;margin:0 auto;width:min(100%,430px);aspect-ratio:1.55;background:linear-gradient(180deg,#dbeafe 0%,#93c5fd 66%,#4ade80 67%,#166534 100%);border:8px solid #f8fafc;border-bottom-width:5px;border-radius:8px 8px 2px 2px;box-shadow:0 14px 38px #0008;overflow:hidden;">
+          <div style="position:absolute;inset:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);">
+            ${['Top left','Top center','Top right','Middle left','Center','Middle right','Bottom left','Bottom center','Bottom right'].map((label, index) => `<button type="button" class="football2d-target" data-portion="${index}" aria-label="Aim ${label}" aria-pressed="${index === 4}" style="border:1px solid #ffffff75;background:${index === 4 ? '#10b98155' : '#0b3b2a12'};color:#0b291f;font-size:clamp(10px,2.8vw,14px);font-weight:800;cursor:pointer;text-shadow:0 1px 1px #fff8;">${label}</button>`).join('')}
+          </div>
+        </div>
+        <p id="football2dFeedback" role="status" aria-live="polite" style="min-height:24px;margin:18px 0;color:#ecfdf5;font-weight:700;">Choose a target, then take your shot.</p>
+        <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
+          <button id="football2dShoot" type="button" style="min-width:170px;border:0;border-radius:999px;background:linear-gradient(135deg,#34d399,#059669);color:#052e22;padding:14px 24px;font-size:15px;font-weight:900;cursor:pointer;">Shoot</button>
+          <button id="football2dRetry3d" type="button" style="border:1px solid #ffffff60;border-radius:999px;background:#07140fbf;color:#fff;padding:14px 18px;font-size:13px;font-weight:700;cursor:pointer;">Retry 3D</button>
+        </div>
+        <p style="margin-top:20px;font-size:11px;color:#bbf7d0;opacity:.8;">3D startup issue: ${failedStage}</p>
+      </section>
+    </main>`;
+
+  el.querySelector('#football2dClose')?.addEventListener('click', () => navigate('/games'));
+  el.querySelector('#football2dRetry3d')?.addEventListener('click', () => startGame(config, takerData));
+  const targetButtons = [...el.querySelectorAll('.football2d-target')];
+  targetButtons.forEach(button => button.addEventListener('click', () => {
+    if (submitting) return;
+    selectedPortion = Number(button.dataset.portion);
+    targetButtons.forEach(target => {
+      const isSelected = target === button;
+      target.setAttribute('aria-pressed', String(isSelected));
+      target.style.background = isSelected ? '#10b98188' : '#0b3b2a12';
+    });
+    const label = button.getAttribute('aria-label')?.replace('Aim ', '') || 'target';
+    el.querySelector('#football2dFeedback').textContent = `Aiming ${label}. Take your shot when ready.`;
+  }));
+
+  el.querySelector('#football2dShoot')?.addEventListener('click', async event => {
+    if (submitting) return;
+    submitting = true;
+    const shootButton = event.currentTarget;
+    shootButton.disabled = true;
+    shootButton.textContent = 'Shooting…';
+    const feedback = el.querySelector('#football2dFeedback');
+    const column = selectedPortion % 3;
+    const row = Math.floor(selectedPortion / 3);
+    const targetDirection = column === 0 ? 'left' : column === 2 ? 'right' : 'center';
+    const targetStyle = row === 0 ? 'high' : row === 2 ? 'low' : 'kneel';
+    const keeperChoice = chooseKeeperDive(selectedPortion, 0);
+    const outcome = keeperChoice.direction === targetDirection && keeperChoice.style === targetStyle ? 'save' : 'goal';
+
+    try {
+      feedback.textContent = 'The keeper is diving…';
+      const result = await submitShot({
+        takerId: takerData.id,
+        portion: selectedPortion,
+        amount: portions[selectedPortion],
+        outcome
+      });
+      if (outcome === 'goal') {
+        feedback.textContent = `GOAL! ${result.reward ? `+${money(result.reward)}` : ''}`.trim();
+      } else {
+        feedback.textContent = `SAVED${result.penalty ? ` · -${money(result.penalty)}` : ''}`;
+      }
+      try {
+        const newBalance = await refreshWallet();
+        const balanceEl = el.querySelector('#football2dBalance');
+        if (balanceEl) balanceEl.textContent = money(newBalance);
+      } catch {}
+    } catch (error) {
+      feedback.textContent = error?.message || 'Shot submission failed. Try again.';
+    } finally {
+      submitting = false;
+      shootButton.disabled = false;
+      shootButton.textContent = 'Shoot again';
+    }
   });
 }
 
@@ -48,6 +127,7 @@ function generateFallbackTakers() {
 
 export async function renderFootball() {
   const el = document.getElementById('viewContainer');
+  cleanupFootballEngine();
   document.body.classList.add('football-active');
   el.classList.add('full-bleed-view');
   el.style.padding = '0';
@@ -109,12 +189,7 @@ async function startGame(config, takerData) {
     if (!Babylon || !window.BABYLON) throw new Error('Babylon.js loaded without a global engine');
   } catch (err) {
     console.error('[football] Babylon load error', err);
-    renderFootballFailure(el, {
-      title: 'Football shootout unavailable',
-      message: 'The 3D game engine could not load. Check your connection and try again.',
-      retryLabel: 'Try again',
-      onRetry: () => renderFootball()
-    });
+    void renderFootball2DFallback(el, config, takerData, 'engine download');
     return;
   }
 
@@ -129,12 +204,8 @@ async function startGame(config, takerData) {
     requestAnimationFrame(() => engine.resize());
   } catch (err) {
     console.error('[football] createScene error', err);
-    renderFootballFailure(el, {
-      title: 'Football shootout could not start',
-      message: 'The football graphics engine could not start on this attempt. Please retry once.',
-      retryLabel: 'Try again',
-      onRetry: () => startGame(config, takerData)
-    });
+    disposeFootballEngine(engine);
+    void renderFootball2DFallback(el, config, takerData, 'graphics startup');
     return;
   }
 
@@ -154,13 +225,8 @@ async function startGame(config, takerData) {
     });
   } catch (err) {
     console.error('[football] object creation error', err?.stack || err);
-    try { engine.stopRenderLoop(); engine.dispose(); } catch {}
-    renderFootballFailure(el, {
-      title: 'Football shootout could not start',
-      message: 'We could not load this taker. You can retry without losing your selection.',
-      retryLabel: 'Retry taker',
-      onRetry: () => startGame(config, takerData)
-    });
+    disposeFootballEngine(engine);
+    void renderFootball2DFallback(el, config, takerData, '3D player setup');
     return;
   }
 

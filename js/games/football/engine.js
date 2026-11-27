@@ -32,6 +32,10 @@ export async function loadBabylon() {
 export function createScene(canvas, { isDark }) {
   const B = window.BABYLON;
   if (!canvas) throw new Error('Football canvas is unavailable');
+  if (!B?.Engine) throw new Error('Babylon.js engine is unavailable');
+  if (typeof B.Engine.isSupported === 'function' && !B.Engine.isSupported()) {
+    throw new Error('WebGL is not supported by this browser');
+  }
 
   let engine;
   try {
@@ -43,61 +47,67 @@ export function createScene(canvas, { isDark }) {
       throw new Error(`Football graphics engine unavailable: ${fallbackError?.message || primaryError?.message || 'WebGL failed'}`);
     }
   }
-  const scene = new B.Scene(engine);
-  scene.clearColor = isDark
-    ? new B.Color4(0.03, 0.06, 0.12, 1)
-    : new B.Color4(0.55, 0.75, 0.95, 1);
+  try {
+    const scene = new B.Scene(engine);
+    scene.clearColor = isDark
+      ? new B.Color4(0.03, 0.06, 0.12, 1)
+      : new B.Color4(0.55, 0.75, 0.95, 1);
 
-  // Cameras — we'll switch between them for replay
-  const cameras = {};
-  cameras.tpt = new B.FreeCamera('tpt', new B.Vector3(0, 3, -10), scene);
-  cameras.tpt.setTarget(new B.Vector3(0, 3, 0));
-  cameras.tpt.fov = 0.9;
-  scene.activeCamera = cameras.tpt;
+    // Cameras — we'll switch between them for replay
+    const cameras = {};
+    cameras.tpt = new B.FreeCamera('tpt', new B.Vector3(0, 3, -10), scene);
+    cameras.tpt.setTarget(new B.Vector3(0, 3, 0));
+    cameras.tpt.fov = 0.9;
+    scene.activeCamera = cameras.tpt;
 
-  cameras.fpt = new B.FreeCamera('fpt', new B.Vector3(0, 2, -5.5), scene);
-  cameras.fpt.setTarget(new B.Vector3(0, 3, 0));
+    cameras.fpt = new B.FreeCamera('fpt', new B.Vector3(0, 2, -5.5), scene);
+    cameras.fpt.setTarget(new B.Vector3(0, 3, 0));
 
-  cameras.overhead = new B.FreeCamera('overhead', new B.Vector3(0, 12, -6), scene);
-  cameras.overhead.setTarget(new B.Vector3(0, 2, 0));
+    cameras.overhead = new B.FreeCamera('overhead', new B.Vector3(0, 12, -6), scene);
+    cameras.overhead.setTarget(new B.Vector3(0, 2, 0));
 
-  cameras.goalline = new B.FreeCamera('goalline', new B.Vector3(0, 2.5, 3), scene);
-  cameras.goalline.setTarget(new B.Vector3(0, 3, -2));
+    cameras.goalline = new B.FreeCamera('goalline', new B.Vector3(0, 2.5, 3), scene);
+    cameras.goalline.setTarget(new B.Vector3(0, 3, -2));
 
-  cameras.backgoal = new B.FreeCamera('backgoal', new B.Vector3(0, 3, 8), scene);
-  cameras.backgoal.setTarget(new B.Vector3(0, 3, 0));
+    cameras.backgoal = new B.FreeCamera('backgoal', new B.Vector3(0, 3, 8), scene);
+    cameras.backgoal.setTarget(new B.Vector3(0, 3, 0));
 
-  cameras.ball = new B.FreeCamera('ballcam', new B.Vector3(0, 1, -5), scene);
-  cameras.ball.setTarget(new B.Vector3(0, 3, 0));
+    cameras.ball = new B.FreeCamera('ballcam', new B.Vector3(0, 1, -5), scene);
+    cameras.ball.setTarget(new B.Vector3(0, 3, 0));
 
-  // Lights
-  const hemi = new B.HemisphericLight('hemi', new B.Vector3(0, 1, 0), scene);
-  hemi.intensity = isDark ? 0.55 : 1.0;
-  const dir = new B.DirectionalLight('dir', new B.Vector3(-0.5, -1, 0.5), scene);
-  dir.intensity = 0.7;
+    // Lights
+    const hemi = new B.HemisphericLight('hemi', new B.Vector3(0, 1, 0), scene);
+    hemi.intensity = isDark ? 0.55 : 1.0;
+    const dir = new B.DirectionalLight('dir', new B.Vector3(-0.5, -1, 0.5), scene);
+    dir.intensity = 0.7;
 
-  // Field
-  const field = B.MeshBuilder.CreateGround('field', { width: 30, height: 25 }, scene);
-  const fieldMat = new B.StandardMaterial('fieldMat', scene);
-  fieldMat.diffuseColor = isDark
-    ? new B.Color3(0.10, 0.25, 0.14)
-    : new B.Color3(0.20, 0.55, 0.24);
-  field.material = fieldMat;
+    // Field
+    const field = B.MeshBuilder.CreateGround('field', { width: 30, height: 25 }, scene);
+    const fieldMat = new B.StandardMaterial('fieldMat', scene);
+    fieldMat.diffuseColor = isDark
+      ? new B.Color3(0.10, 0.25, 0.14)
+      : new B.Color3(0.20, 0.55, 0.24);
+    field.material = fieldMat;
 
-  // Grass stripes
-  for (let i = 0; i < 12; i++) {
-    const stripe = B.MeshBuilder.CreateGround('stripe' + i, { width: 30, height: 1.1 }, scene);
-    const sm = new B.StandardMaterial('sm' + i, scene);
-    sm.diffuseColor = isDark
-      ? new B.Color3(0.12, 0.28, 0.16)
-      : new B.Color3(0.24, 0.60, 0.28);
-    sm.alpha = 0.5;
-    stripe.material = sm;
-    stripe.position.z = -12 + i * 2;
-    stripe.position.y = 0.01;
+    // Grass stripes
+    for (let i = 0; i < 12; i++) {
+      const stripe = B.MeshBuilder.CreateGround('stripe' + i, { width: 30, height: 1.1 }, scene);
+      const sm = new B.StandardMaterial('sm' + i, scene);
+      sm.diffuseColor = isDark
+        ? new B.Color3(0.12, 0.28, 0.16)
+        : new B.Color3(0.24, 0.60, 0.28);
+      sm.alpha = 0.5;
+      stripe.material = sm;
+      stripe.position.z = -12 + i * 2;
+      stripe.position.y = 0.01;
+    }
+
+    return { engine, scene, cameras };
+  } catch (error) {
+    try { engine.stopRenderLoop(); } catch {}
+    try { engine.dispose(); } catch {}
+    throw error;
   }
-
-  return { engine, scene, cameras };
 }
 
 export function createGoalpost(scene, { logoTextureUrl }) {
