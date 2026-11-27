@@ -29,7 +29,10 @@ let _state = {
   showingSearchGrid: false,
   viewingSearchResult: false,
   baseReels: [],
-  baseIndex: 0
+  baseIndex: 0,
+  autoScroll: false,
+  clearDisplay: false,
+  playbackRates: {}
 };
 const pendingReactions = new Set();
 
@@ -38,12 +41,15 @@ function forceDark() {
 }
 
 export async function renderReels() {
+  _state.autoScroll = false;
+  _state.clearDisplay = false;
+  _state.playbackRates = {};
   forceDark();
   const el = document.getElementById('viewContainer');
   el.style.padding = '0';
   el.innerHTML = `
-    <div style="position:fixed;inset:0;background:#000;color:white;z-index:40;display:flex;flex-direction:column;">
-      <div style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:16px;z-index:50;padding-top:calc(16px + env(safe-area-inset-top));">
+    <div id="reelsRoot" class="reels-root" style="position:fixed;inset:0;background:#000;color:white;z-index:40;display:flex;flex-direction:column;">
+      <div class="reel-chrome" style="position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:16px;z-index:50;padding-top:calc(16px + env(safe-area-inset-top));">
         <div style="display:flex;gap:8px;">
           <button id="reelsClose" aria-label="Close reels" style="background:rgba(0,0,0,0.4);border:none;color:white;width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer;">
             <i class="fas fa-close"></i>
@@ -57,24 +63,27 @@ export async function renderReels() {
         </button>
       </div>
 
-      <div id="searchBar" style="display:none;position:absolute;top:64px;left:16px;right:16px;z-index:55;padding-top:env(safe-area-inset-top);">
+      <button id="clearDisplayBack" class="reel-clear-back" type="button" aria-label="Exit clear display and return to reels"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
+
+      <div id="searchBar" class="reel-chrome" style="display:none;position:absolute;top:64px;left:16px;right:16px;z-index:55;padding-top:env(safe-area-inset-top);">
         <input id="reelSearchInput" aria-label="Search reels" placeholder="Search reels by caption or creator..." style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:rgba(0,0,0,0.75);color:white;font-size:15px;outline:none;">
       </div>
 
-      <section id="reelSearchResults" aria-label="Reel search results" hidden style="position:absolute;inset:0;z-index:45;overflow-y:auto;background:#080808;padding:calc(78px + env(safe-area-inset-top)) 10px calc(20px + env(safe-area-inset-bottom));">
+      <section id="reelSearchResults" class="reel-chrome" aria-label="Reel search results" hidden style="position:absolute;inset:0;z-index:45;overflow-y:auto;background:#080808;padding:calc(78px + env(safe-area-inset-top)) 10px calc(20px + env(safe-area-inset-bottom));">
         <p id="reelSearchResultSummary" role="status" style="margin:0 4px 12px;color:#ccc;font-size:13px;"></p>
         <div id="reelSearchGrid" style="display:flex;flex-direction:column;gap:12px;"></div>
       </section>
 
       <div id="reelSlide" style="flex:1;position:relative;overflow:hidden;"></div>
 
-      <button id="createReelBtn" style="position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:white;color:#2c0941;border:none;width:52px;height:52px;border-radius:16px;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.5);z-index:55;">
+      <button id="createReelBtn" class="reel-chrome" style="position:absolute;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:white;color:#2c0941;border:none;width:52px;height:52px;border-radius:16px;font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.5);z-index:55;">
         <i class="fas fa-plus"></i>
       </button>
     </div>
   `;
 
   document.getElementById('reelsClose').onclick = () => { restoreAppTheme(); navigate('/home'); };
+  document.getElementById('clearDisplayBack').onclick = exitClearDisplay;
   document.getElementById('createReelBtn').onclick = () => navigate('/reels/new/create');
 
   document.getElementById('reelsSearchBtn').onclick = () => {
@@ -302,15 +311,20 @@ function renderSlide() {
     const isOwner = r.user_id === user?.id;
     const desc = r.description || '';
     const descShort = desc.length > 90 ? desc.slice(0, 90) + '…' : desc;
+    const playbackRate = Number(_state.playbackRates[r.id]) || 1;
+    const speedLabel = playbackRate === 0.5 ? '0.5×' : `${playbackRate}×`;
+    const speedColor = playbackRate === 2 ? '#3ba072' : playbackRate === 0.5 ? '#af7cc6' : 'rgba(255,255,255,0.84)';
+    const speedBackground = playbackRate === 2 ? 'rgba(59,160,114,0.2)' : playbackRate === 0.5 ? 'rgba(175,124,198,0.22)' : 'rgba(0,0,0,0.28)';
+    const speedBorder = playbackRate === 1 ? 'rgba(255,255,255,0.35)' : speedColor;
 
     return `
-      <div class="reel-slide" data-index="${i}" style="position:absolute;inset:0;transform:translateY(${(i - _state.index) * 100}%);transition:transform 0.3s ease;background:#000;-webkit-touch-callout:none;user-select:none;">
-        <video src="${r.cloudinary_secure_url}" playsinline loop preload="metadata" draggable="false" style="width:100%;height:100%;object-fit:contain;background:#000;pointer-events:none;-webkit-touch-callout:none;user-select:none;"></video>
+      <div class="reel-slide ${i === _state.index ? 'is-current' : ''}" data-index="${i}" style="position:absolute;inset:0;transform:translateY(${(i - _state.index) * 100}%);transition:transform 0.3s ease;background:#000;-webkit-touch-callout:none;user-select:none;">
+        <video src="${r.cloudinary_secure_url}" class="reel-video" playsinline preload="metadata" draggable="false" style="width:100%;height:100%;object-fit:contain;background:#000;pointer-events:none;-webkit-touch-callout:none;user-select:none;"></video>
         <div class="reel-play-icon" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity 0.15s;">
           <i class="fas fa-play" style="font-size:60px;color:rgba(255,255,255,0.85);"></i>
         </div>
 
-        <div style="position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:18px;align-items:center;z-index:5;">
+        <div class="reel-chrome" style="position:absolute;right:12px;bottom:120px;display:flex;flex-direction:column;gap:18px;align-items:center;z-index:5;">
           <button class="reel-profile" data-username="${r.username}" style="background:none;border:none;color:white;cursor:pointer;text-align:center;">
             <div style="width:46px;height:46px;border-radius:50%;background:#dbfedd;color:#1f2937;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:20px;border:2px solid white;">
               ${(r.username || 'U')[1]?.toUpperCase() || 'U'}
@@ -320,18 +334,30 @@ function renderSlide() {
             <i class="fas fa-thumbs-up"></i>
             <span style="font-size:12px;">${compact((r.likes || []).length)}</span>
           </button>
-          <button type="button" class="reel-speed-toggle" data-index="${i}" aria-label="Turn on 2× playback speed" aria-pressed="false" style="width:40px;height:40px;border:1px solid rgba(255,255,255,0.35);border-radius:50%;background:rgba(0,0,0,0.28);backdrop-filter:blur(6px);color:rgba(255,255,255,0.84);cursor:pointer;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">2×</button>
+          <button type="button" class="reel-speed-toggle" data-index="${i}" data-rate="${playbackRate}" aria-label="Playback speed ${speedLabel}; activate to change speed" aria-pressed="${playbackRate !== 1}" style="width:42px;height:42px;border:1px solid ${speedBorder};border-radius:50%;background:${speedBackground};backdrop-filter:blur(6px);color:${speedColor};cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;">${speedLabel}</button>
           ${isOwner ? `<button class="reel-delete" data-id="${r.id}" style="background:none;border:none;color:white;cursor:pointer;font-size:22px;"><i class="fas fa-trash"></i></button>` : ''}
         </div>
 
-        <div style="position:absolute;left:12px;right:80px;bottom:100px;color:white;z-index:5;">
+        <div class="reel-chrome" style="position:absolute;left:12px;right:80px;bottom:100px;color:white;z-index:5;">
           <p style="font-weight:700;font-size:15px;">${r.username}</p>
           ${r.caption ? `<p style="font-weight:600;font-size:14px;margin-top:4px;">${escapeHtml(r.caption)}</p>` : ''}
           ${desc ? `<p style="font-size:13px;opacity:0.9;margin-top:4px;" class="reel-desc" data-full="${escapeAttr(desc)}" data-short="${escapeAttr(descShort)}">${escapeHtml(descShort)}${desc.length > 90 ? ' <button type="button" class="reel-more" aria-expanded="false" style="font-weight:600;background:none;border:0;padding:0;color:inherit;cursor:pointer;">more</button>' : ''}</p>` : ''}
         </div>
 
-        <div style="position:absolute;right:12px;top:64px;color:white;font-size:12px;opacity:0.85;z-index:5;">
+        <div class="reel-chrome" style="position:absolute;right:12px;top:64px;color:white;font-size:12px;opacity:0.85;z-index:5;">
           <i class="fas fa-eye"></i> ${compact(r.views || 0)}
+        </div>
+
+        <div class="reel-clear-controls" aria-label="Video controls">
+          <div class="reel-clear-control-row">
+            <button type="button" class="reel-clear-play" aria-label="Pause video"><i class="fas fa-pause" aria-hidden="true"></i></button>
+            <span class="reel-clear-time reel-clear-current">0:00</span>
+            <button type="button" class="reel-clear-speed" aria-label="Change playback speed">${speedLabel}</button>
+            <button type="button" class="reel-clear-fullscreen" aria-label="Toggle full screen"><i class="fas fa-expand" aria-hidden="true"></i></button>
+            <button type="button" class="reel-clear-pip" aria-label="Picture in picture"><i class="fas fa-clone" aria-hidden="true"></i></button>
+            <span class="reel-clear-time reel-clear-duration">0:00</span>
+          </div>
+          <input class="reel-clear-seek" type="range" min="0" max="1000" value="0" aria-label="Video timeline">
         </div>
       </div>
     `;
@@ -350,12 +376,14 @@ function renderSlide() {
       holdMoved = false;
     };
 
-    slide.addEventListener('contextmenu', event => event.preventDefault());
+    slide.addEventListener('contextmenu', event => {
+      event.preventDefault();
+      event.stopPropagation();
+    }, true);
     slide.addEventListener('selectstart', event => event.preventDefault());
-    video.addEventListener('contextmenu', event => event.preventDefault());
-    video.addEventListener('dragstart', event => event.preventDefault());
+    slide.addEventListener('dragstart', event => event.preventDefault());
     slide.addEventListener('pointerdown', event => {
-      if (Number(slide.dataset.index) !== _state.index || event.target.closest('button, a, .reel-more')) return;
+      if (_state.clearDisplay || Number(slide.dataset.index) !== _state.index || event.target.closest('button, a, .reel-more')) return;
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       holdStartedAt = Date.now();
       holdStartX = event.clientX;
@@ -368,12 +396,12 @@ function renderSlide() {
     });
     slide.addEventListener('pointerup', () => {
       if (!holdStartedAt) return;
-      const shouldDownload = !holdMoved && Date.now() - holdStartedAt >= 1000;
+      const shouldOpenMenu = !holdMoved && Date.now() - holdStartedAt >= 650;
       holdStartedAt = 0;
       holdMoved = false;
-      if (shouldDownload) {
+      if (shouldOpenMenu) {
         skipNextSlideClick = true;
-        showDownloadConfirmation(_state.reels[Number(slide.dataset.index)]);
+        showReelOptionsMenu(_state.reels[Number(slide.dataset.index)], slide);
       }
     });
     slide.addEventListener('pointercancel', cancelHold);
@@ -397,6 +425,39 @@ function renderSlide() {
         setTimeout(() => playIcon.style.opacity = '0', 500);
       }
     });
+
+    video.loop = !_state.autoScroll;
+    video.addEventListener('ended', () => {
+      if (_state.autoScroll && !_state.clearDisplay) nextReel();
+    });
+    video.addEventListener('timeupdate', () => syncReelControls(slide));
+    video.addEventListener('loadedmetadata', () => syncReelControls(slide));
+    video.addEventListener('durationchange', () => syncReelControls(slide));
+    video.addEventListener('play', () => syncReelControls(slide));
+    video.addEventListener('pause', () => syncReelControls(slide));
+
+    slide.querySelector('.reel-clear-play').onclick = event => {
+      event.stopPropagation();
+      if (video.paused) video.play().catch(() => {});
+      else video.pause();
+    };
+    slide.querySelector('.reel-clear-seek').addEventListener('input', event => {
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      if (duration > 0) video.currentTime = duration * Number(event.target.value) / 1000;
+    });
+    slide.querySelector('.reel-clear-speed').onclick = event => {
+      event.stopPropagation();
+      cyclePlaybackRate(slide);
+    };
+    slide.querySelector('.reel-clear-fullscreen').onclick = event => {
+      event.stopPropagation();
+      toggleReelFullscreen(slide, video);
+    };
+    slide.querySelector('.reel-clear-pip').onclick = event => {
+      event.stopPropagation();
+      toggleReelPictureInPicture(video);
+    };
+    syncReelControls(slide);
 
     const io = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting) {
@@ -431,15 +492,7 @@ function renderSlide() {
   });
   wrap.querySelectorAll('.reel-speed-toggle').forEach(btn => btn.onclick = event => {
     event.stopPropagation();
-    const video = wrap.querySelector(`.reel-slide[data-index="${btn.dataset.index}"] video`);
-    if (!video) return;
-    const enabled = btn.getAttribute('aria-pressed') !== 'true';
-    video.playbackRate = enabled ? 2 : 1;
-    btn.setAttribute('aria-pressed', String(enabled));
-    btn.setAttribute('aria-label', `${enabled ? 'Turn off' : 'Turn on'} 2× playback speed`);
-    btn.style.color = enabled ? '#3ba072' : 'rgba(255,255,255,0.84)';
-    btn.style.background = enabled ? 'rgba(59,160,114,0.2)' : 'rgba(0,0,0,0.28)';
-    btn.style.borderColor = enabled ? 'rgba(59,160,114,0.85)' : 'rgba(255,255,255,0.35)';
+    cyclePlaybackRate(btn.closest('.reel-slide'));
   });
   wrap.querySelectorAll('.reel-profile').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); navigate(`/profile/${btn.dataset.username}`); });
   wrap.querySelectorAll('.reel-delete').forEach(btn => btn.onclick = (e) => { e.stopPropagation(); deleteReel(btn.dataset.id); });
@@ -462,19 +515,20 @@ function renderSlide() {
 
 function setupSwipe() {
   const wrap = document.getElementById('reelSlide');
-  wrap.addEventListener('touchstart', (e) => {
-    _state.touchStartY = e.touches[0].clientY;
-    _state.touchEndY = e.touches[0].clientY;
+  wrap.addEventListener('touchstart', event => {
+    if (_state.clearDisplay) return;
+    _state.touchStartY = event.touches[0].clientY;
+    _state.touchEndY = event.touches[0].clientY;
   }, { passive: true });
-  wrap.addEventListener('touchmove', (e) => {
-    if (_state.touchStartY !== null) _state.touchEndY = e.touches[0].clientY;
+  wrap.addEventListener('touchmove', event => {
+    if (!_state.clearDisplay && _state.touchStartY !== null) _state.touchEndY = event.touches[0].clientY;
   }, { passive: true });
   const finishTouch = () => {
     const startY = _state.touchStartY;
     const endY = _state.touchEndY;
     _state.touchStartY = null;
     _state.touchEndY = null;
-    if (startY === null || endY === null) return;
+    if (_state.clearDisplay || startY === null || endY === null) return;
     const dy = startY - endY;
     if (Math.abs(dy) > 50) dy > 0 ? nextReel() : prevReel();
   };
@@ -486,34 +540,218 @@ function setupSwipe() {
 }
 
 function nextReel() {
+  if (_state.clearDisplay) return;
   if (_state.index < _state.reels.length - 1) {
     _state.index++;
     updatePositions();
   }
 }
+
 function prevReel() {
+  if (_state.clearDisplay) return;
   if (_state.index > 0) {
     _state.index--;
     updatePositions();
   }
 }
+
 function updatePositions() {
-  document.querySelectorAll('.reel-slide').forEach(s => {
-    s.style.transform = `translateY(${(Number(s.dataset.index) - _state.index) * 100}%)`;
-  });
-  document.querySelectorAll('.reel-slide video').forEach(video => {
+  document.querySelectorAll('#reelSlide .reel-slide').forEach(slide => {
+    const index = Number(slide.dataset.index);
+    const isCurrent = index === _state.index;
+    slide.classList.toggle('is-current', isCurrent);
+    slide.style.transform = `translateY(${(index - _state.index) * 100}%)`;
+    const video = slide.querySelector('video');
+    if (!video) return;
+    const reelId = slide.querySelector('.reel-like')?.dataset.id;
     video.pause();
-    video.playbackRate = 1;
+    video.playbackRate = Number(_state.playbackRates[reelId]) || 1;
+    video.loop = !_state.autoScroll;
+    if (!isCurrent) {
+      try { video.currentTime = 0; } catch {}
+    }
+    syncReelControls(slide);
   });
-  document.querySelectorAll('.reel-speed-toggle').forEach(button => {
-    button.setAttribute('aria-pressed', 'false');
-    button.setAttribute('aria-label', 'Turn on 2× playback speed');
-    button.style.color = 'rgba(255,255,255,0.84)';
-    button.style.background = 'rgba(0,0,0,0.28)';
-    button.style.borderColor = 'rgba(255,255,255,0.35)';
+  const currentVideo = document.querySelector(`#reelSlide .reel-slide[data-index="${_state.index}"] video`);
+  currentVideo?.play().catch(() => {});
+}
+
+function formatReelTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const minutes = Math.floor(seconds / 60);
+  const remainder = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainder}`;
+}
+
+function syncReelControls(slide) {
+  const video = slide.querySelector('video');
+  if (!video) return;
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+  const seek = slide.querySelector('.reel-clear-seek');
+  if (seek) seek.value = duration ? String(Math.round((current / duration) * 1000)) : '0';
+  const currentTime = slide.querySelector('.reel-clear-current');
+  const durationTime = slide.querySelector('.reel-clear-duration');
+  if (currentTime) currentTime.textContent = formatReelTime(current);
+  if (durationTime) durationTime.textContent = formatReelTime(duration);
+  const playButton = slide.querySelector('.reel-clear-play');
+  if (playButton) {
+    const icon = playButton.querySelector('i');
+    if (icon) icon.className = `fas fa-${video.paused ? 'play' : 'pause'}`;
+    playButton.setAttribute('aria-label', video.paused ? 'Play video' : 'Pause video');
+  }
+  const reelId = slide.querySelector('.reel-like')?.dataset.id;
+  const rate = Number(_state.playbackRates[reelId]) || 1;
+  const label = rate === 0.5 ? '0.5×' : `${rate}×`;
+  const clearSpeed = slide.querySelector('.reel-clear-speed');
+  if (clearSpeed) {
+    const color = rate === 2 ? '#3ba072' : rate === 0.5 ? '#af7cc6' : 'rgba(255,255,255,0.92)';
+    const background = rate === 2 ? 'rgba(59,160,114,0.2)' : rate === 0.5 ? 'rgba(175,124,198,0.22)' : 'rgba(255,255,255,0.12)';
+    clearSpeed.textContent = label;
+    clearSpeed.dataset.rate = String(rate);
+    clearSpeed.setAttribute('aria-label', `Playback speed ${label}; activate to change speed`);
+    clearSpeed.style.color = color;
+    clearSpeed.style.background = background;
+    clearSpeed.style.borderColor = rate === 1 ? 'rgba(255,255,255,0.25)' : color;
+  }
+}
+
+function setPlaybackRate(slide, rate) {
+  if (!slide) return;
+  const reelId = slide.querySelector('.reel-like')?.dataset.id;
+  if (reelId) _state.playbackRates[reelId] = rate;
+  const video = slide.querySelector('video');
+  if (video) video.playbackRate = rate;
+  const label = rate === 0.5 ? '0.5×' : `${rate}×`;
+  const color = rate === 2 ? '#3ba072' : rate === 0.5 ? '#af7cc6' : 'rgba(255,255,255,0.84)';
+  const background = rate === 2 ? 'rgba(59,160,114,0.2)' : rate === 0.5 ? 'rgba(175,124,198,0.22)' : 'rgba(0,0,0,0.28)';
+  const border = rate === 1 ? 'rgba(255,255,255,0.35)' : color;
+  const speedButton = slide.querySelector('.reel-speed-toggle');
+  if (speedButton) {
+    speedButton.textContent = label;
+    speedButton.dataset.rate = String(rate);
+    speedButton.setAttribute('aria-pressed', String(rate !== 1));
+    speedButton.setAttribute('aria-label', `Playback speed ${label}; activate to change speed`);
+    speedButton.style.color = color;
+    speedButton.style.background = background;
+    speedButton.style.borderColor = border;
+  }
+  const clearSpeed = slide.querySelector('.reel-clear-speed');
+  if (clearSpeed) {
+    clearSpeed.textContent = label;
+    clearSpeed.dataset.rate = String(rate);
+    clearSpeed.setAttribute('aria-label', `Playback speed ${label}; activate to change speed`);
+    clearSpeed.style.color = color;
+    clearSpeed.style.background = background;
+    clearSpeed.style.borderColor = border;
+  }
+}
+
+function cyclePlaybackRate(slide) {
+  if (!slide) return;
+  const reelId = slide.querySelector('.reel-like')?.dataset.id;
+  const current = Number(_state.playbackRates[reelId]) || 1;
+  setPlaybackRate(slide, current === 1 ? 2 : current === 2 ? 0.5 : 1);
+}
+
+function setAutoScroll(enabled) {
+  _state.autoScroll = enabled;
+  document.querySelectorAll('#reelSlide .reel-slide video').forEach(video => {
+    video.loop = !enabled;
   });
-  const cur = document.querySelector(`.reel-slide[data-index="${_state.index}"] video`);
-  cur?.play().catch(() => {});
+}
+
+async function toggleReelFullscreen(slide, video = slide?.querySelector('video')) {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    if (slide?.requestFullscreen) await slide.requestFullscreen({ navigationUI: 'hide' });
+    else if (video?.webkitEnterFullscreen) video.webkitEnterFullscreen();
+    else showToast('Full screen is not supported by this browser.');
+  } catch {
+    showToast('Could not enter full screen.');
+  }
+}
+
+async function toggleReelPictureInPicture(video) {
+  try {
+    if (document.pictureInPictureElement === video && document.exitPictureInPicture) {
+      await document.exitPictureInPicture();
+    } else if (video?.requestPictureInPicture) {
+      await video.requestPictureInPicture();
+    } else if (video?.webkitSetPresentationMode) {
+      video.webkitSetPresentationMode(video.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture');
+    } else {
+      showToast('Picture in picture is not supported by this browser.');
+    }
+  } catch {
+    showToast('Could not open picture in picture.');
+  }
+}
+
+function enterClearDisplay() {
+  _state.clearDisplay = true;
+  _state.touchStartY = null;
+  _state.touchEndY = null;
+  setAutoScroll(false);
+  document.getElementById('reelsRoot')?.classList.add('is-clear-display');
+  document.getElementById('clearDisplayBack')?.focus();
+}
+
+function exitClearDisplay() {
+  _state.clearDisplay = false;
+  document.getElementById('reelsRoot')?.classList.remove('is-clear-display');
+}
+
+function showReelOptionsMenu(reel, slide) {
+  if (!reel?.id || _state.clearDisplay) return;
+  document.querySelector('.reel-options-backdrop')?.remove();
+  const root = document.getElementById('reelsRoot');
+  if (!root) return;
+  const backdrop = document.createElement('div');
+  backdrop.className = 'reel-options-backdrop';
+  backdrop.innerHTML = `
+    <section class="reel-options-panel" role="dialog" aria-modal="true" aria-labelledby="reelOptionsTitle">
+      <div class="reel-options-heading">
+        <h2 id="reelOptionsTitle">Reel options</h2>
+        <button type="button" class="reel-options-close" aria-label="Close reel options"><i class="fas fa-close" aria-hidden="true"></i></button>
+      </div>
+      <button type="button" class="reel-option" data-action="download"><i class="fas fa-download" aria-hidden="true"></i><span>Download video</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+      <button type="button" class="reel-option" data-action="autoscroll"><i class="fas fa-forward-step" aria-hidden="true"></i><span>Auto-scroll</span><span class="reel-option-status">${_state.autoScroll ? 'On' : 'Off'}</span></button>
+      <button type="button" class="reel-option" data-action="fullscreen"><i class="fas fa-expand" aria-hidden="true"></i><span>Full screen</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+      <button type="button" class="reel-option" data-action="pip"><i class="fas fa-clone" aria-hidden="true"></i><span>Picture in picture</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+      <button type="button" class="reel-option" data-action="clear"><i class="fas fa-eye-slash" aria-hidden="true"></i><span>Clear display</span><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+      <button type="button" class="reel-options-cancel">Cancel</button>
+    </section>
+  `;
+  root.appendChild(backdrop);
+  const close = () => {
+    document.removeEventListener('keydown', onKeydown);
+    backdrop.remove();
+  };
+  const onKeydown = event => {
+    if (event.key === 'Escape') close();
+  };
+  document.addEventListener('keydown', onKeydown);
+  backdrop.addEventListener('click', event => {
+    if (event.target === backdrop) close();
+  });
+  backdrop.querySelectorAll('.reel-options-close, .reel-options-cancel').forEach(button => button.addEventListener('click', close));
+  backdrop.querySelectorAll('.reel-option').forEach(button => button.addEventListener('click', () => {
+    const action = button.dataset.action;
+    close();
+    if (action === 'download') showDownloadConfirmation(reel);
+    if (action === 'autoscroll') {
+      setAutoScroll(!_state.autoScroll);
+      showToast(`Auto-scroll ${_state.autoScroll ? 'on' : 'off'}`);
+    }
+    if (action === 'fullscreen') toggleReelFullscreen(slide);
+    if (action === 'pip') toggleReelPictureInPicture(slide.querySelector('video'));
+    if (action === 'clear') enterClearDisplay();
+  }));
+  backdrop.querySelector('.reel-options-close')?.focus();
 }
 
 async function toggleLike(btn) {

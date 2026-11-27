@@ -104,7 +104,7 @@ async function listReels(req, res) {
   if (error) return res.status(500).json({ error: error.message });
 
   // Filter out reels from private accounts
-  const { data: privates } = await sb.from('users').select('id').eq('visibility', false);
+  const { data: privates } = await sb.from('users').select('id').or('visibility.eq.false,deleted_at.not.is.null');
   const privateIds = new Set((privates || []).map(p => p.id));
   const filtered = (reels || []).filter(r => !privateIds.has(r.user_id));
 
@@ -131,8 +131,8 @@ async function singleReel(req, res) {
     const { data: reel } = await sb.from('reels').select('*').eq('id', id).eq('deleted', false).maybeSingle();
     if (!reel) return res.status(404).json({ error: 'Reel not found. Might be deleted by the creator.' });
     if (viewer?.visibility === false && reel.user_id !== viewer.id) return res.status(403).json({ error: 'Private accounts cannot view reels' });
-    const { data: owner } = await sb.from('users').select('visibility').eq('id', reel.user_id).maybeSingle();
-    if (owner?.visibility === false && reel.user_id !== viewer?.id) return res.status(403).json({ error: 'Not Available' });
+const { data: owner } = await sb.from('users').select('visibility, deleted_at').eq('id', reel.user_id).maybeSingle();
+  if ((owner?.visibility === false || owner?.deleted_at) && reel.user_id !== viewer?.id) return res.status(403).json({ error: 'Not Available' });
     return res.status(200).json({ reel });
   }
 
@@ -164,8 +164,8 @@ async function downloadReel(req, res) {
 
   if (reel.user_id !== user.id) {
     if (user.visibility === false) return res.status(403).json({ error: 'Private accounts cannot download reels' });
-    const { data: owner } = await sb.from('users').select('visibility').eq('id', reel.user_id).maybeSingle();
-    if (owner?.visibility === false) return res.status(403).json({ error: 'This reel is not available' });
+    const { data: owner } = await sb.from('users').select('visibility, deleted_at').eq('id', reel.user_id).maybeSingle();
+    if (owner?.visibility === false || owner?.deleted_at) return res.status(403).json({ error: 'This reel is not available' });
   }
 
   let videoUrl;

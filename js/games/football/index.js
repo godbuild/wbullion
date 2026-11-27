@@ -13,6 +13,26 @@ import { apiFetch } from '../../lib/api.js';
 
 let S = null;
 
+function renderFootballFailure(el, { title, message, retryLabel, onRetry }) {
+  el.innerHTML = `
+    <div class="football-failure" style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
+      <button id="footballBack" class="football-back-button" type="button" aria-label="Back to games" title="Back to games"><i class="fas fa-arrow-left" aria-hidden="true"></i></button>
+      <div class="football-failure-content">
+        <i class="fas fa-triangle-exclamation" style="font-size:42px;color:#f59e0b;margin-bottom:16px;" aria-hidden="true"></i>
+        <h3>${title}</h3>
+        <p style="opacity:.8;margin:10px 0 20px;">${message}</p>
+        <button id="footballRetry" class="wb-btn-primary" type="button">${retryLabel}</button>
+      </div>
+    </div>`;
+  document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
+  document.getElementById('footballRetry')?.addEventListener('click', event => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = 'Retrying…';
+    window.setTimeout(onRetry, 0);
+  });
+}
+
 function generateFallbackTakers() {
   // create 10 takers with 5 left-footed and 5 right-footed, random names
   const names = ['Ade', 'Bola', 'Chike', 'Dayo', 'Emeka', 'Femi', 'Gani', 'Hauwa', 'Ife', 'Jide'];
@@ -89,23 +109,12 @@ async function startGame(config, takerData) {
     if (!Babylon || !window.BABYLON) throw new Error('Babylon.js loaded without a global engine');
   } catch (err) {
     console.error('[football] Babylon load error', err);
-    el.innerHTML = `
-      <div style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
-        <div><i class="fas fa-triangle-exclamation" style="font-size:42px;color:#fbbf24;margin-bottom:16px;"></i><h3>Football shootout unavailable</h3><p style="opacity:.8;margin:10px 0 20px;">The 3D game engine could not load. Check your connection and try again.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
-      </div>`;
-    const retryButton = document.getElementById('footballRetry');
-    const backButton = document.getElementById('footballBack');
-    if (retryButton) {
-      retryButton.type = 'button';
-      retryButton.onclick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        retryButton.disabled = true;
-        retryButton.textContent = 'Retrying…';
-        window.setTimeout(() => renderFootball(), 0);
-      };
-    }
-    if (backButton) backButton.onclick = () => navigate('/games');
+    renderFootballFailure(el, {
+      title: 'Football shootout unavailable',
+      message: 'The 3D game engine could not load. Check your connection and try again.',
+      retryLabel: 'Try again',
+      onRetry: () => renderFootball()
+    });
     return;
   }
 
@@ -120,12 +129,12 @@ async function startGame(config, takerData) {
     requestAnimationFrame(() => engine.resize());
   } catch (err) {
     console.error('[football] createScene error', err);
-    el.innerHTML = `
-      <div style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
-        <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">The football graphics engine could not start on this attempt. Please retry once.</p><button id="footballRetry" class="wb-btn-primary">Try again</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
-      </div>`;
-    document.getElementById('footballRetry')?.addEventListener('click', () => startGame(config, takerData));
-    document.getElementById('footballBack')?.addEventListener('click', () => navigate('/games'));
+    renderFootballFailure(el, {
+      title: 'Football shootout could not start',
+      message: 'The football graphics engine could not start on this attempt. Please retry once.',
+      retryLabel: 'Try again',
+      onRetry: () => startGame(config, takerData)
+    });
     return;
   }
 
@@ -146,24 +155,12 @@ async function startGame(config, takerData) {
   } catch (err) {
     console.error('[football] object creation error', err?.stack || err);
     try { engine.stopRenderLoop(); engine.dispose(); } catch {}
-    el.innerHTML = `
-      <div style="min-height:100dvh;background:linear-gradient(145deg,#f8fafc,#cbd5e1);color:#1f2937;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;">
-        <div><h3>Football shootout could not start</h3><p style="opacity:.8;margin:10px 0 20px;">We could not load this taker. You can retry without losing your selection.</p><button id="footballRetry" class="wb-btn-primary">Retry taker</button><button id="footballBack" class="wb-btn-secondary" style="margin-left:8px;">Back to games</button></div>
-      </div>`;
-    const retryButton = document.getElementById('footballRetry');
-    const backButton = document.getElementById('footballBack');
-    if (retryButton) {
-      retryButton.type = 'button';
-      retryButton.disabled = false;
-      retryButton.onclick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        retryButton.disabled = true;
-        retryButton.textContent = 'Retrying…';
-        window.setTimeout(() => startGame(config, takerData), 0);
-      };
-    }
-    if (backButton) backButton.onclick = () => navigate('/games');
+    renderFootballFailure(el, {
+      title: 'Football shootout could not start',
+      message: 'We could not load this taker. You can retry without losing your selection.',
+      retryLabel: 'Retry taker',
+      onRetry: () => startGame(config, takerData)
+    });
     return;
   }
 
